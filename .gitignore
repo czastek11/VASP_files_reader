@@ -416,3 +416,19 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# ================================
+# VS Code
+# ================================
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/c_cpp_properties.json  # ważne dla C++ w VS Code
+
+# ================================
+# Folder roboczy (ignoruj całą zawartość)
+# ================================
+workspace/**
+!workspace/.gitkeep  # utwórz pusty plik .gitkeep w workspace/
