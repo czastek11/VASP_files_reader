@@ -324,7 +324,6 @@ void VASP_data::read_LOCPOT(std::string path, std::string body, std::string id)
 	{
 		for (int i = 0; i < NGiF[0]; i++)
 		{
-			potential[i] = new double* [NGiF[1]];
 			for (int j = 0; j < NGiF[1]; j++)
 			{
 				delete[] potential[i][j];
@@ -337,6 +336,7 @@ void VASP_data::read_LOCPOT(std::string path, std::string body, std::string id)
 
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
+	int ix = 0, iy = 0, iz = 0;
 	
 	potential = new double** [NGiF[0]];
 	for (int i = 0; i < NGiF[0]; i++)
@@ -349,9 +349,9 @@ void VASP_data::read_LOCPOT(std::string path, std::string body, std::string id)
 	}
 	for (int i = 0; i < total_grid_points; i++)
 	{
-		int ix = i % NGiF[0];
-		int iy = (i / NGiF[0]) % NGiF[1];
-		int iz = i / (NGiF[0] * NGiF[1]);
+		ix = i % NGiF[0];
+		iy = (i / NGiF[0]) % NGiF[1];
+		iz = i / (NGiF[0] * NGiF[1]);
 		file >> potential[ix][iy][iz];
 		//potentai lcan have up to 4 datasets for spin polarized calculations, but we only read the first one here
 		//current example has 4 but magmom is set to 0 for all atoms, so the other 3 datasets are mostly zeros
@@ -392,16 +392,20 @@ int VASP_data::count_total_electrons()
 	return static_cast<int>(count_total_electrons_double() + 0.5); // rounding to nearest integer
 }
 
-void VASP_data::write_potential_averaged_xy_z(std::string id, bool primitive)
+void VASP_data::write_potential_averaged_xy_z(std::string id, std::string period_type, double period)
 {
 	if (checkpot())
 	{
 		std::vector<double> potential_z(NGiF[2], 0.0);
 		int total_xy_points = NGiF[0] * NGiF[1];
-		for (int k = 0; k < NGiF[2]; k++) { // z index
-			double sum = 0.0;
-			for (int i = 0; i < NGiF[0]; i++) { // x index
-				for (int j = 0; j < NGiF[1]; j++) { // y index
+		double sum;
+		for (int k = 0; k < NGiF[2]; k++)  // z index
+		{ 
+			sum = 0.0;
+			for (int i = 0; i < NGiF[0]; i++)// x index
+			{ 
+				for (int j = 0; j < NGiF[1]; j++) // y index
+				{ 
 					sum += potential[i][j][k];
 				}
 			}
@@ -410,9 +414,13 @@ void VASP_data::write_potential_averaged_xy_z(std::string id, bool primitive)
 
 		// average potential in z over moving window. Window size is one periodic layer thickness.
 		int window = 1;
-		if (primitive)
+		if (period_type=="primitive")
 		{
 			window = NGiF[2];
+		}
+		else if (period_type == "manual")
+		{
+			window = period;
 		}
 		else
 		{
@@ -434,6 +442,16 @@ void VASP_data::write_potential_averaged_xy_z(std::string id, bool primitive)
 
 		}
 		file.close();
+	}
+}
+
+void VASP_data::write_potential_averaged_xy_z(std::string id, std::string period_type)
+{
+	if(period_type!="manual") write_potential_averaged_xy_z(id, period_type, 0.0);
+	else
+	{
+		std::cerr << "Error: For manual period type, you must provide a period value." << std::endl;
+		throw std::runtime_error("Error: Missing period value for manual period type");
 	}
 }
 

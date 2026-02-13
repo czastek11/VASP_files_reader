@@ -25,7 +25,8 @@ public:
 	void read_LOCPOT(std::string path, std::string body, std::string id);
 	double count_total_electrons_double();
 	int count_total_electrons();
-	void write_potential_averaged_xy_z(std::string id, bool primitive);
+	void write_potential_averaged_xy_z(std::string id, std::string period_type, double period);
+	void write_potential_averaged_xy_z(std::string id, std::string period_type);
 	arma::vec calc_dipole_moment(arma::vec center, std::vector<int> start, std::vector<int> end);
 	void write_potential(std::string id);
 	void read_DOS(std::string id, int ions, std::string format);

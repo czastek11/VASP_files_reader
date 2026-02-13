@@ -18,7 +18,9 @@ int main()
 	vector<string> chalcogenides = { "S2_", "Se2_" };
 	vector<string> layer = { "bulk","2layer","6layer" };
 	vector<int> layer_values = { 2,2,6 };
-
+	string job_name;
+	try
+	{
 	/*
 	for (const auto& metal : metals)
 	{
@@ -435,17 +437,21 @@ int main()
 	}
 	//*/
 	///*
-	try
-	{
-		string id = "MoS2_slab";
+	
+		string id1 = "idpol", id2 = "normal";
+		job_name = "MoS2_slab one bulk sheet";
 		VASP_data data = VASP_data();
-		data.read_LOCPOT("", body, id);
-		cout << "Volume for "+id+": " << arma::det(data.get_cell_matrix()) << endl;
-		data.write_potential_averaged_xy_z(id + "_avg", false);
-	}
-	catch (const std::exception& ex) {
-		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
-	}
+		data.read_LOCPOT("workspace\\", body, id1);
+		arma::mat cell_matrix = data.get_cell_matrix();
+		cout << "Volume for "+id1+": " << arma::det(cell_matrix) << endl;
+		data.write_potential_averaged_xy_z(id1 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
+
+
+		data.read_LOCPOT("workspace\\", body, id2);
+		cell_matrix = data.get_cell_matrix();
+		cout << "Volume for " + id2 + ": " << arma::det(cell_matrix) << endl;
+		data.write_potential_averaged_xy_z(id2 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
+	
 	//*/
 	/*
 	try
@@ -475,5 +481,9 @@ int main()
 		cerr << "Error at::" << ex.what() << endl;
 	}
 	//*/
+	}
+	catch (const std::exception& ex) {
+		cerr << "Error at " << job_name<< " " << ex.what() << endl;
+	}
 	return 0;
 }
