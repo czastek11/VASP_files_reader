@@ -436,18 +436,18 @@ int main()
 		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
 	}
 	//*/
-	///*
+	/*
 	
 		string id1 = "idpol", id2 = "normal";
 		job_name = "MoS2_slab one bulk sheet";
 		VASP_data data = VASP_data();
-		data.read_LOCPOT("workspace\\", body, id1);
+		data.read_LOCPOT("workspace\\" + body + id1);
 		arma::mat cell_matrix = data.get_cell_matrix();
 		cout << "Volume for "+id1+": " << arma::det(cell_matrix) << endl;
 		data.write_potential_averaged_xy_z(id1 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
 
 
-		data.read_LOCPOT("workspace\\", body, id2);
+		data.read_LOCPOT("workspace\\" + body + id2);
 		cell_matrix = data.get_cell_matrix();
 		cout << "Volume for " + id2 + ": " << arma::det(cell_matrix) << endl;
 		data.write_potential_averaged_xy_z(id2 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
@@ -480,6 +480,12 @@ int main()
 	{
 		cerr << "Error at::" << ex.what() << endl;
 	}
+	//*/
+	///*
+	string id = "WSe2_monolayer";
+	VASP_data data = VASP_data();
+	data.read_EIGENVAL("workspace\\EIGENVAL");
+	data.write_BS(id);
 	//*/
 	}
 	catch (const std::exception& ex) {

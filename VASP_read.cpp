@@ -1,6 +1,6 @@
 #include "VASP_read.h"
 
-std::vector<double> moving_average(std:: vector<double> data, int window_size)
+std::vector<double> moving_average(std::vector<double> data, int window_size)
 {
 	std::vector<double> averaged(data.size(), 0.0);
 	int half_window = window_size / 2;
@@ -22,59 +22,18 @@ std::vector<double> moving_average(std:: vector<double> data, int window_size)
 	return averaged;
 }
 
-double calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R)
-{
-	//double epsilon_0 = 8.854187817e-12; // vacuum permittivity in F/m
-	// Using atomic units where 1/(4pieps0) = 1
-	double R_len = arma::norm(R);
-	arma::vec r_hat = R / R_len;
-	double potential = (arma::dot(dip_1, dip_2) - 3 * arma::dot(dip_1, r_hat) * arma::dot(dip_2, r_hat)) / (R_len * R_len * R_len);
-	return potential;
-}
-
-arma::vec calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::vec R) //check the derivation : -grad_r calc_dip_dip_potential
-{
-	//double epsilon_0 = 8.854187817e-12; // vacuum permittivity in F/m
-	// Using atomic units where 1/(4pieps0) = 1
-	double R_len = arma::norm(R);
-	arma::vec r_hat = R / R_len;
-	arma::vec grad_r_3 = -3 * r_hat / (R_len * R_len * R_len * R_len);
-	arma::vec term1 = grad_r_3 * arma::dot(dip_1, dip_2);
-	double term2_1 = arma::dot(dip_1, r_hat);
-	double term2_2 = arma::dot(dip_2, r_hat);
-	arma::vec term2_1_grad = (dip_1 - r_hat * term2_1) / R_len;
-	arma::vec term2_2_grad = (dip_2 - r_hat * term2_2) / R_len;
-	arma::vec term2 = -3 * (term2_1_grad * term2_2 + term2_1 * term2_2_grad) / (R_len * R_len * R_len) - 3 * term2_1 * term2_2 * grad_r_3;
-	arma::vec force = -(term1 + term2);
-	return force;
-}
-
-void write_DOS_sum_types(std::string id, const std::vector<std::vector<std::vector<double>>>& dos_summed, const std::vector<std::string>& names)
-{
-	std::fstream file;
-
-	int num_types = dos_summed.size();
-	int NDOS = dos_summed[0].size();
-	for (int type_id = 0; type_id < num_types; type_id++)
-	{
-		std::string file_name = "workspace\\" + id + "_" + names[type_id] + "_DOS_sum.txt";
-		file.open(file_name, std::ios::out);
-		file.precision(12);
-		file << "# DOS for type: " << names[type_id] << "\n";
-		file << "# Energy (eV)   DOS\n";
-		for (int i = 0; i < NDOS; i++)
-		{
-			file << dos_summed[type_id][i][0] << " " << dos_summed[type_id][i][1] << "\n";
-		}
-		file << "\n\n";
-		file.close();
-	}
-
-}
-
 VASP_data::VASP_data() :  NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(), charge_density_raw(nullptr), charge_density(nullptr), potential(nullptr), dos_data()
 {
 	cell_matrix = arma::mat(3, 3, arma::fill::zeros);
+	NBANDS = 0;
+	kpoints = 0;
+}
+
+VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS) : VASP_data()
+{
+	if (read_CHGCAR) this->read_CHGCAR(file_path + "CHGCAR");
+	if (read_LOCPOT) this->read_LOCPOT(file_path + "LOCPOT");
+	if (read_DOS) this->read_DOS(file_path + "DOSCAR", ions, format);
 }
 
 VASP_data::~VASP_data()
@@ -156,6 +115,17 @@ bool VASP_data::checkdos()
 	{
 		std::cerr << "Error: DOS data not loaded. Please load data before using DOS data." << std::endl;
 		throw std::runtime_error("Error: DOS data not loaded");
+		return false;
+	}
+	else return true;
+}
+
+bool VASP_data::checkBS()
+{
+	if (BS == nullptr)
+	{
+		std::cerr << "Error: Band structure data not loaded. Please load data before using band structure data." << std::endl;
+		throw std::runtime_error("Error: Band structure data not loaded");
 		return false;
 	}
 	else return true;
@@ -268,9 +238,8 @@ void VASP_data::read_POSCAR_like(std::string file_name, std::fstream& file)
 	}
 }
 
-void VASP_data::read_CHGCAR(std::string path, std::string body, std::string id)
+void VASP_data::read_CHGCAR(std::string filename)
 {
-	std::string file_name = path + body + id;
 	std::fstream file;
 	if (charge_density_raw != nullptr)
 	{
@@ -287,7 +256,7 @@ void VASP_data::read_CHGCAR(std::string path, std::string body, std::string id)
 		delete[] charge_density_raw;
 		delete[] charge_density;
 	}
-	read_POSCAR_like(file_name, file);
+	read_POSCAR_like(filename, file);
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
 
@@ -316,9 +285,8 @@ void VASP_data::read_CHGCAR(std::string path, std::string body, std::string id)
 	file.close();
 }
 
-void VASP_data::read_LOCPOT(std::string path, std::string body, std::string id)
+void VASP_data::read_LOCPOT(std::string filename)
 {
-	std::string file_name = path + body + id;
 	std::fstream file;
 	if (potential != nullptr)
 	{
@@ -332,7 +300,7 @@ void VASP_data::read_LOCPOT(std::string path, std::string body, std::string id)
 		}
 		delete[] potential;
 	}
-	read_POSCAR_like(file_name, file);
+	read_POSCAR_like(filename, file);
 
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
@@ -392,7 +360,7 @@ int VASP_data::count_total_electrons()
 	return static_cast<int>(count_total_electrons_double() + 0.5); // rounding to nearest integer
 }
 
-void VASP_data::write_potential_averaged_xy_z(std::string id, std::string period_type, double period)
+void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string period_type, double period)
 {
 	if (checkpot())
 	{
@@ -431,9 +399,9 @@ void VASP_data::write_potential_averaged_xy_z(std::string id, std::string period
 		potential_z = moving_average(potential_z, window);
 
 
-		std::string file_name = "workspace\\" + id + "_potential_z.txt";
+		std::string full_filename = "workspace\\" + filename + "_potential_z.txt";
 		std::fstream file;
-		file.open(file_name, std::ios::out);
+		file.open(full_filename, std::ios::out);
 		double z_real;
 		for (int i = 0; i < NGiF[2]; i++)
 		{
@@ -445,9 +413,9 @@ void VASP_data::write_potential_averaged_xy_z(std::string id, std::string period
 	}
 }
 
-void VASP_data::write_potential_averaged_xy_z(std::string id, std::string period_type)
+void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string period_type)
 {
-	if(period_type!="manual") write_potential_averaged_xy_z(id, period_type, 0.0);
+	if(period_type!="manual") write_potential_averaged_xy_z(filename, period_type, 0.0);
 	else
 	{
 		std::cerr << "Error: For manual period type, you must provide a period value." << std::endl;
@@ -480,14 +448,14 @@ arma::vec VASP_data::calc_dipole_moment(arma::vec center, std::vector<int> start
 	else return arma::vec(3, arma::fill::zeros);
 }
 
-void VASP_data::write_potential(std::string id)
+void VASP_data::write_potential(std::string filename)
 {
 	if (checkpot())
 	{
 		arma::vec a = cell_matrix.col(0), b = cell_matrix.col(1), c = cell_matrix.col(2), pos;
-		std::string file_name = "workspace\\" + id + "_potential.txt";
+		std::string full_filename = "workspace\\" + filename + "_potential.txt";
 		std::fstream file;
-		file.open(file_name, std::ios::out);
+		file.open(full_filename, std::ios::out);
 		for (int i = 0; i < NGiF[0]; i++)
 		{
 			for (int j = 0; j < NGiF[1]; j++)
@@ -503,15 +471,15 @@ void VASP_data::write_potential(std::string id)
 	}
 }
 
-void VASP_data::read_DOS(std::string id, int ions, std::string format)
+void VASP_data::read_DOS(std::string filename, int ions, std::string format)
 {
 	if (format == "LORBIT=11,no_SO")
 	{
 		std::fstream file;
-		file.open(id, std::ios::in);
+		file.open(filename, std::ios::in);
 		if (!file.is_open())
 		{
-			std::cerr << "Error opening file: " << id << std::endl;
+			std::cerr << "Error opening file: " << filename << std::endl;
 			throw std::runtime_error("Error opening file");
 		}
 		else
@@ -601,7 +569,126 @@ std::vector<std::vector<std::vector<double>>> VASP_data::sum_DOS_types(std::vect
 	else return {};
 }
 
+void VASP_data::read_EIGENVAL(std::string filename)
+{
+	std::fstream file;
+	file.open(filename, std::ios::in);
+	if (file.is_open())
+	{
+		// skip first 5 lines
+		std::string line;
+		double energy;
+		int occ;
+		for (int i = 0; i < 5; i++)
+		{
+			getline(file, line);
+		}
+		getline(file, line);
+		std::stringstream ss(line);
+		ss >> kpoints >> kpoints >> NBANDS; // second number is kpoints, third number is NBANDS
+		BS = new double* [kpoints];
+		for (int i=0 ; i<kpoints; i++)
+		{
+			BS[i] = new double[NBANDS];
+		}
+		for (int k = 0; k < kpoints; k++)
+		{
+			getline(file, line); // skip empty line before each k-point block
+			getline(file, line); // skip k-point header line
+			for (int b = 0; b < NBANDS; b++)
+			{
+				getline(file, line);
+				std::stringstream ss2(line);
+
+				ss2 >> occ >> energy >> occ; // first number band number, second number energy, third number occupation. We only care about energy here.
+				BS[k][b] = energy;
+			}
+		}
+		file.close();
+	}
+	else
+	{
+		std::cerr << "Error opening file: " << filename << std::endl;
+		throw std::runtime_error("Error opening file");
+	}
+}
+
+void VASP_data::write_BS(std::string filename)
+{
+	if (checkBS())
+	{
+		std::string full_filename = "workspace\\" + filename + "_BS.txt";
+		std::ofstream file;
+
+		file.open(full_filename, std::ios::out);
+		file << std::fixed << std::setprecision(8);
+
+		int max_k_width = std::to_string(kpoints).length();
+		int max_band_width = 12;  // Enough for -XX.XXXXXXXX format (-12.34567800)
+		for (int k = 0; k < kpoints; k++)
+		{
+			file <<std::setw(max_k_width)<< k + 1;
+			for (int b = 0; b < NBANDS; b++)
+			{
+				file  << " " << std::setw(max_band_width) << BS[k][b];
+			}
+			file << "\n";
+		}
+		file.close();
+	}
+}
+
 arma::mat VASP_data::get_cell_matrix()
 {
 	return cell_matrix;
+}
+
+double VASP_data::calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R)
+{
+	//double epsilon_0 = 8.854187817e-12; // vacuum permittivity in F/m
+	// Using atomic units where 1/(4pieps0) = 1
+	double R_len = arma::norm(R);
+	arma::vec r_hat = R / R_len;
+	double potential = (arma::dot(dip_1, dip_2) - 3 * arma::dot(dip_1, r_hat) * arma::dot(dip_2, r_hat)) / (R_len * R_len * R_len);
+	return potential;
+}
+
+arma::vec VASP_data::calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::vec R) //check the derivation : -grad_r calc_dip_dip_potential
+{
+	//double epsilon_0 = 8.854187817e-12; // vacuum permittivity in F/m
+	// Using atomic units where 1/(4pieps0) = 1
+	double R_len = arma::norm(R);
+	arma::vec r_hat = R / R_len;
+	arma::vec grad_r_3 = -3 * r_hat / (R_len * R_len * R_len * R_len);
+	arma::vec term1 = grad_r_3 * arma::dot(dip_1, dip_2);
+	double term2_1 = arma::dot(dip_1, r_hat);
+	double term2_2 = arma::dot(dip_2, r_hat);
+	arma::vec term2_1_grad = (dip_1 - r_hat * term2_1) / R_len;
+	arma::vec term2_2_grad = (dip_2 - r_hat * term2_2) / R_len;
+	arma::vec term2 = -3 * (term2_1_grad * term2_2 + term2_1 * term2_2_grad) / (R_len * R_len * R_len) - 3 * term2_1 * term2_2 * grad_r_3;
+	arma::vec force = -(term1 + term2);
+	return force;
+}
+
+void VASP_data::write_DOS_sum_types(std::string id, const std::vector<std::vector<std::vector<double>>>& dos_summed, const std::vector<std::string>& names)
+{
+	std::fstream file;
+
+	int num_types = dos_summed.size();
+	int NDOS = dos_summed[0].size();
+	for (int type_id = 0; type_id < num_types; type_id++)
+	{
+		std::string file_name = "workspace\\" + id + "_" + names[type_id] + "_DOS_sum.txt";
+		file.open(file_name, std::ios::out);
+		file.precision(12);
+		file << "# DOS for type: " << names[type_id] << "\n";
+		file << "# Energy (eV)   DOS\n";
+		for (int i = 0; i < NDOS; i++)
+		{
+			file << dos_summed[type_id][i][0] << " " << dos_summed[type_id][i][1] << "\n";
+		}
+		file << "\n\n";
+		file.close();
+	}
+
 }
