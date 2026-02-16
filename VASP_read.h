@@ -15,7 +15,7 @@ class VASP_data
 {
 public:
 	VASP_data();
-	VASP_data(std::string file_path, int ions, std::string format, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS);
+	VASP_data(std::string file_path, int ions, std::string format, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS, bool read_EIGENVAL);
 	~VASP_data();
 	static arma::mat sorting_positions(arma::mat positions, std::string method);
 	std::vector<int> get_mesh_indices(arma::vec pos);
@@ -23,13 +23,14 @@ public:
 	void read_LOCPOT(std::string filename);
 	double count_total_electrons_double();
 	int count_total_electrons();
-	void write_potential_averaged_xy_z(std::string filename, std::string period_type, double period);
+	void write_potential_averaged_xy_z(std::string filename, std::string period_type, int period);
 	void write_potential_averaged_xy_z(std::string filename, std::string period_type);
 	arma::vec calc_dipole_moment(arma::vec center, std::vector<int> start, std::vector<int> end);
 	void write_potential(std::string filename);
 	void read_DOS(std::string filename, int ions, std::string format);
 	std::vector<std::vector<std::vector<double>>> sum_DOS_types(std::vector<int>& sets);
 	void read_EIGENVAL(std::string filename);
+	void write_BS(std::string filename, bool verbose_kpts, bool only_path);
 	void write_BS(std::string filename);
 	arma::mat get_cell_matrix(); 
 	static double calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R);
@@ -48,12 +49,14 @@ private:
 	double*** charge_density;
 	double*** potential;
 	std::vector<std::vector<std::vector<double>>> dos_data;
+	double** KPOINTS;
 	double** BS;
 	void read_POSCAR_like(std::string file_name, std::fstream& file);
 	bool checkgeo();
 	bool checkcharge();
 	bool checkpot();
 	bool checkdos();
+	bool checkKPOINTS();
 	bool checkBS();
 	
 };

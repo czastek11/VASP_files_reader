@@ -22,18 +22,19 @@ std::vector<double> moving_average(std::vector<double> data, int window_size)
 	return averaged;
 }
 
-VASP_data::VASP_data() :  NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(), charge_density_raw(nullptr), charge_density(nullptr), potential(nullptr), dos_data()
+VASP_data::VASP_data() : NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(), charge_density_raw(nullptr), charge_density(nullptr), potential(nullptr), dos_data(), KPOINTS(nullptr), BS(nullptr)
 {
 	cell_matrix = arma::mat(3, 3, arma::fill::zeros);
 	NBANDS = 0;
 	kpoints = 0;
 }
 
-VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS) : VASP_data()
+VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS, bool read_EIGENVAL) : VASP_data()
 {
 	if (read_CHGCAR) this->read_CHGCAR(file_path + "CHGCAR");
 	if (read_LOCPOT) this->read_LOCPOT(file_path + "LOCPOT");
 	if (read_DOS) this->read_DOS(file_path + "DOSCAR", ions, format);
+	if (read_EIGENVAL) this->read_EIGENVAL(file_path + "EIGENVAL");
 }
 
 VASP_data::~VASP_data()
@@ -73,6 +74,22 @@ VASP_data::~VASP_data()
 			delete[] potential[i];
 		}
 		delete[] potential;
+	}
+	if (KPOINTS != nullptr)
+	{
+		for (int i = 0; i < kpoints; i++)
+		{
+			delete[] KPOINTS[i];
+		}
+		delete[] KPOINTS;
+	}
+	if (BS != nullptr)
+	{
+		for (int i = 0; i < kpoints; i++)
+		{
+			delete[] BS[i];
+		}
+		delete[] BS;
 	}
 }
 
@@ -115,6 +132,17 @@ bool VASP_data::checkdos()
 	{
 		std::cerr << "Error: DOS data not loaded. Please load data before using DOS data." << std::endl;
 		throw std::runtime_error("Error: DOS data not loaded");
+		return false;
+	}
+	else return true;
+}
+
+bool VASP_data::checkKPOINTS()
+{
+	if (KPOINTS == nullptr)
+	{
+		std::cerr << "Error: KPOINTS data not loaded. Please load data before using KPOINTS data." << std::endl;
+		throw std::runtime_error("Error: KPOINTS data not loaded");
 		return false;
 	}
 	else return true;
@@ -210,6 +238,7 @@ void VASP_data::read_POSCAR_like(std::string file_name, std::fstream& file)
 	//vector<arma::mat> types_atom_positions;
 	getline(file, line); //skip direct
 	types_atom_positions.clear();
+	atom_positions.clear();
 	for (int i = 0; i < atoms_per_type.size(); i++)
 	{
 		types_atom_positions.push_back(arma::mat(3, atoms_per_type[i]));
@@ -360,7 +389,7 @@ int VASP_data::count_total_electrons()
 	return static_cast<int>(count_total_electrons_double() + 0.5); // rounding to nearest integer
 }
 
-void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string period_type, double period)
+void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string period_type, int period)
 {
 	if (checkpot())
 	{
@@ -390,13 +419,13 @@ void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string 
 		{
 			window = period;
 		}
-		else
+		else if (period_type == "layered")
 		{
 			arma::vec distance = cell_matrix.t() * (atom_positions.col(2) - atom_positions.col(0));
 			window = get_mesh_indices(distance)[2];
 		}
 
-		potential_z = moving_average(potential_z, window);
+		if (period_type!="none") potential_z = moving_average(potential_z, window);
 
 
 		std::string full_filename = "workspace\\" + filename + "_potential_z.txt";
@@ -587,14 +616,18 @@ void VASP_data::read_EIGENVAL(std::string filename)
 		std::stringstream ss(line);
 		ss >> kpoints >> kpoints >> NBANDS; // second number is kpoints, third number is NBANDS
 		BS = new double* [kpoints];
+		KPOINTS = new double* [kpoints];
 		for (int i=0 ; i<kpoints; i++)
 		{
 			BS[i] = new double[NBANDS];
+			KPOINTS[i] = new double[4]; // 3 for k-point coordinates and 1 for weight (if needed in the future)
 		}
 		for (int k = 0; k < kpoints; k++)
 		{
 			getline(file, line); // skip empty line before each k-point block
-			getline(file, line); // skip k-point header line
+			getline(file, line); // read k-point coordinates
+			std::stringstream ss(line);
+			ss >> KPOINTS[k][0] >> KPOINTS[k][1] >> KPOINTS[k][2] >> KPOINTS[k][3]; // k-point coordinates in reciprocal space, fourth number is weight
 			for (int b = 0; b < NBANDS; b++)
 			{
 				getline(file, line);
@@ -613,9 +646,9 @@ void VASP_data::read_EIGENVAL(std::string filename)
 	}
 }
 
-void VASP_data::write_BS(std::string filename)
+void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path)
 {
-	if (checkBS())
+	if (checkBS() && checkKPOINTS()) //band structure and k-points must be loaded before writing band structure data
 	{
 		std::string full_filename = "workspace\\" + filename + "_BS.txt";
 		std::ofstream file;
@@ -627,7 +660,9 @@ void VASP_data::write_BS(std::string filename)
 		int max_band_width = 12;  // Enough for -XX.XXXXXXXX format (-12.34567800)
 		for (int k = 0; k < kpoints; k++)
 		{
+			if (only_path && (KPOINTS[k][3] != 0.0)) continue; // skip k-points that are not on the path (weight not zero)
 			file <<std::setw(max_k_width)<< k + 1;
+			if (verbose_kpts) file << " " << std::setw(10) << KPOINTS[k][0] << " " << std::setw(10) << KPOINTS[k][1] << " " << std::setw(10) << KPOINTS[k][2];
 			for (int b = 0; b < NBANDS; b++)
 			{
 				file  << " " << std::setw(max_band_width) << BS[k][b];
@@ -636,6 +671,11 @@ void VASP_data::write_BS(std::string filename)
 		}
 		file.close();
 	}
+}
+
+void VASP_data::write_BS(std::string filename)
+{
+	write_BS(filename, false, false);
 }
 
 arma::mat VASP_data::get_cell_matrix()

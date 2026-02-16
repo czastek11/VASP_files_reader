@@ -16,12 +16,12 @@ int main()
 	string body = "LOCPOT_";
 	vector<string> metals = { "W", "Mo" };
 	vector<string> chalcogenides = { "S2_", "Se2_" };
-	vector<string> layer = { "bulk","2layer","6layer" };
-	vector<int> layer_values = { 2,2,6 };
-	string job_name;
+	vector<string> layers = { "bulk","2layer","4layer","6layer", "8layer" };//{ "8layer" };
+	vector<int> layer_values = { 2,2,4,6,8 };
+	string job_name,id;
 	try
 	{
-	/*
+		/*
 	for (const auto& metal : metals)
 	{
 		for (const auto& chalcogenide : chalcogenides)
@@ -40,7 +40,7 @@ int main()
 		}
 	}
 	*/
-	/*
+		/*
 	for (const auto& lay : layer)
 	{
 		try {
@@ -55,7 +55,7 @@ int main()
 		}
 	}
 	*/
-	/*
+		/*
 	try
 	{
 		readout data1 = read_CHGCAR(path, body, "MoS2_bulk");
@@ -69,7 +69,7 @@ int main()
 		cerr << "Error at " << "MoS2_bulk:" <<ex.what()<< endl;
 	}
 	//*/
-	/*try
+		/*try
 	{
 		readout data = read_CHGCAR(path, body, "WSe2_6layer");
 		arma::vec Mo = { 1.0/3.0,2.0/3.0,0.312506 };
@@ -98,7 +98,7 @@ int main()
 		cerr << "Error at dipole moment calculation: " << ex.what() << endl;
 	}
 	//*/
-	/*
+		/*
 	try
 	{
 		vector<string> dip_type = { "ion","elec","total" };
@@ -241,7 +241,7 @@ int main()
 		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
 	}
 	//*/
-	/*
+		/*
 	try
 	{
 
@@ -436,37 +436,24 @@ int main()
 		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
 	}
 	//*/
-	/*
+		/*
 	
-		string id1 = "idpol", id2 = "normal";
-		job_name = "MoS2_slab one bulk sheet";
-		VASP_data data = VASP_data();
-		data.read_LOCPOT("workspace\\" + body + id1);
-		arma::mat cell_matrix = data.get_cell_matrix();
-		cout << "Volume for "+id1+": " << arma::det(cell_matrix) << endl;
-		data.write_potential_averaged_xy_z(id1 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
+	string id1 = "idpol", id2 = "normal";
+	job_name = "MoS2_slab one bulk sheet";
+	VASP_data data = VASP_data();
+	data.read_LOCPOT("workspace\\" + body + id1);
+	arma::mat cell_matrix = data.get_cell_matrix();
+	cout << "Volume for "+id1+": " << arma::det(cell_matrix) << endl;
+	data.write_potential_averaged_xy_z(id1 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
 
 
-		data.read_LOCPOT("workspace\\" + body + id2);
-		cell_matrix = data.get_cell_matrix();
-		cout << "Volume for " + id2 + ": " << arma::det(cell_matrix) << endl;
-		data.write_potential_averaged_xy_z(id2 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
+	data.read_LOCPOT("workspace\\" + body + id2);
+	cell_matrix = data.get_cell_matrix();
+	cout << "Volume for " + id2 + ": " << arma::det(cell_matrix) << endl;
+	data.write_potential_averaged_xy_z(id2 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
 	
 	//*/
-	/*
-	try
-	{
-		string id = "MoS2_slab";
-		readout_pot data = read_LOCPOT("", body, id);
-		cout << "Volume for " + id + ": " << arma::det(data.cell_matrix) << endl;
-		write_potential(id, data);
-		cleanup_memory(data);
-	}
-	catch (const std::exception& ex) {
-		cerr << "Error at::"<<ex.what() << endl;
-	}
-	//*/
-	/*
+		/*
 	try
 	{
 		vector<string> type_names = { "Se","S","Mo" };
@@ -481,12 +468,34 @@ int main()
 		cerr << "Error at::" << ex.what() << endl;
 	}
 	//*/
-	///*
+		/*
 	string id = "WSe2_monolayer";
 	VASP_data data = VASP_data();
 	data.read_EIGENVAL("workspace\\EIGENVAL");
-	data.write_BS(id);
+	data.write_BS(id, true, false);
 	//*/
+		job_name = "MoS2_vacum_pot_layers";
+		VASP_data data = VASP_data();
+		arma::mat cell_matrix;
+		int pom;
+		for(const auto& layer: layers)
+		{
+			data.read_LOCPOT("workspace\\MoS2_POT\\" + body  + layer);
+			cell_matrix = data.get_cell_matrix().t();
+			if(layer == "bulk")
+			{
+				data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "primitive");
+			}
+			else if(layer == "2layer")
+			{
+				pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
+				data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "manual", pom);
+			}
+			else
+			{
+				data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "layered");
+			}
+		}
 	}
 	catch (const std::exception& ex) {
 		cerr << "Error at " << job_name<< " " << ex.what() << endl;
