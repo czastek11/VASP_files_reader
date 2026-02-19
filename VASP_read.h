@@ -28,29 +28,27 @@ public:
 	arma::vec calc_dipole_moment(arma::vec center, std::vector<int> start, std::vector<int> end);
 	void write_potential(std::string filename);
 	void read_DOS(std::string filename, int ions, std::string format);
-	std::vector<std::vector<std::vector<double>>> sum_DOS_types(std::vector<int>& sets);
+	arma::mat sum_DOS_types(std::vector<int>& sets);
 	void read_EIGENVAL(std::string filename);
 	void write_BS(std::string filename, bool verbose_kpts, bool only_path);
 	void write_BS(std::string filename);
 	arma::mat get_cell_matrix(); 
 	static double calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R);
 	static arma::vec calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::vec R);
-	static void write_DOS_sum_types(std::string id, const std::vector<std::vector<std::vector<double>>>& dos_summed, const std::vector<std::string>& names);
+	static void write_DOS_sum_types(std::string id, const arma::mat& dos_summed, const std::vector<std::string>& names);
 
 private:
-	int kpoints;
-	int NBANDS;
 	arma::mat cell_matrix;
 	std::vector<int> NGiF;
 	std::vector<int> atoms_per_type;
 	std::vector<arma::mat> types_atom_positions;
 	arma::mat atom_positions;
-	double*** charge_density_raw;
-	double*** charge_density;
-	double*** potential;
-	std::vector<std::vector<std::vector<double>>> dos_data;
-	double** KPOINTS;
-	double** BS;
+	arma::cube charge_density_raw;
+	arma::cube charge_density;
+	arma::cube potential;
+	std::vector<arma::mat> dos_data;
+	arma::mat KPOINTS;
+	arma::mat BS;
 	void read_POSCAR_like(std::string file_name, std::fstream& file);
 	bool checkgeo();
 	bool checkcharge();

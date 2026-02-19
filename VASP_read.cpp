@@ -22,11 +22,9 @@ std::vector<double> moving_average(std::vector<double> data, int window_size)
 	return averaged;
 }
 
-VASP_data::VASP_data() : NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(), charge_density_raw(nullptr), charge_density(nullptr), potential(nullptr), dos_data(), KPOINTS(nullptr), BS(nullptr)
+VASP_data::VASP_data() : NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(), charge_density_raw(), charge_density(), potential(), dos_data(), KPOINTS(), BS()
 {
 	cell_matrix = arma::mat(3, 3, arma::fill::zeros);
-	NBANDS = 0;
-	kpoints = 0;
 }
 
 VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS, bool read_EIGENVAL) : VASP_data()
@@ -39,58 +37,7 @@ VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool r
 
 VASP_data::~VASP_data()
 {
-	if (charge_density_raw != nullptr)
-	{
-		for (int i = 0; i < NGiF[0]; i++)
-		{
-			for (int j = 0; j < NGiF[1]; j++)
-			{
-				delete[] charge_density_raw[i][j];
-			}
-			delete[] charge_density_raw[i];
-		}
-		delete[] charge_density_raw;
-	}
-	if (charge_density != nullptr)
-	{
-		for (int i = 0; i < NGiF[0]; i++)
-		{
-			for (int j = 0; j < NGiF[1]; j++)
-			{
-				delete[] charge_density[i][j];
-			}
-			delete[] charge_density[i];
-		}
-		delete[] charge_density;
-	}
-	if (potential != nullptr)
-	{
-		for (int i = 0; i < NGiF[0]; i++)
-		{
-			for (int j = 0; j < NGiF[1]; j++)
-			{
-				delete[] potential[i][j];
-			}
-			delete[] potential[i];
-		}
-		delete[] potential;
-	}
-	if (KPOINTS != nullptr)
-	{
-		for (int i = 0; i < kpoints; i++)
-		{
-			delete[] KPOINTS[i];
-		}
-		delete[] KPOINTS;
-	}
-	if (BS != nullptr)
-	{
-		for (int i = 0; i < kpoints; i++)
-		{
-			delete[] BS[i];
-		}
-		delete[] BS;
-	}
+	
 }
 
 bool VASP_data::checkgeo()
@@ -106,7 +53,7 @@ bool VASP_data::checkgeo()
 
 bool VASP_data::checkcharge()
 {
-	if (charge_density_raw == nullptr)
+	if (charge_density_raw.is_empty())
 	{
 		std::cerr << "Error: charge density data not loaded. Please load data before using charge density." << std::endl;
 		throw std::runtime_error("Error: charge density data not loaded");
@@ -117,7 +64,7 @@ bool VASP_data::checkcharge()
 
 bool VASP_data::checkpot()
 {
-	if (potential == nullptr)
+	if (potential.is_empty())
 	{
 		std::cerr << "Error: potential data not loaded. Please load data before using potential." << std::endl;
 		throw std::runtime_error("Error: potential data not loaded");
@@ -139,7 +86,7 @@ bool VASP_data::checkdos()
 
 bool VASP_data::checkKPOINTS()
 {
-	if (KPOINTS == nullptr)
+	if (KPOINTS.is_empty())
 	{
 		std::cerr << "Error: KPOINTS data not loaded. Please load data before using KPOINTS data." << std::endl;
 		throw std::runtime_error("Error: KPOINTS data not loaded");
@@ -150,7 +97,7 @@ bool VASP_data::checkKPOINTS()
 
 bool VASP_data::checkBS()
 {
-	if (BS == nullptr)
+	if (BS.is_empty())
 	{
 		std::cerr << "Error: Band structure data not loaded. Please load data before using band structure data." << std::endl;
 		throw std::runtime_error("Error: Band structure data not loaded");
@@ -204,15 +151,22 @@ std::vector<int> VASP_data::get_mesh_indices(arma::vec pos)
 void VASP_data::read_POSCAR_like(std::string file_name, std::fstream& file)
 {
 	//fstream file;
+	double number_read;
+	int int_read, num_atom = 0;
+	std::string line, word;
+
 	file.open(file_name, std::ios::in);
 	if (!file.is_open())
 	{
 		std::cerr << "Error opening file: " << file_name << std::endl;
 		throw std::runtime_error("Error opening file");
 	}
-	std::string line, word;
-	double number_read;
-	int int_read;
+	//clear previous data after successfully opening the file, to avoid partial clearing if file opening fails
+	atoms_per_type.clear();
+	types_atom_positions.clear();
+	atom_positions.clear();
+	NGiF.clear();
+	
 	getline(file, line); // Skip the first line (comment)
 	getline(file, line);
 
@@ -221,24 +175,20 @@ void VASP_data::read_POSCAR_like(std::string file_name, std::fstream& file)
 		file >> number_read;
 		cell_matrix(i / 3, i % 3) = number_read;
 	}
+
 	getline(file, line);
 	getline(file, line); // Skip the line after cell matrix
 	getline(file, line);
-	int num_atom = 0;
-	std::stringstream ss(line);
-	//vector<int> atoms_per_type;
 
-	atoms_per_type.clear();
+	std::stringstream ss(line);
 	while (ss >> int_read)
 	{
 		atoms_per_type.push_back(int_read);
 		num_atom += int_read;
 	}
-	//arma::mat atom_positions = arma::mat(3, 0);
-	//vector<arma::mat> types_atom_positions;
+
 	getline(file, line); //skip direct
-	types_atom_positions.clear();
-	atom_positions.clear();
+
 	for (int i = 0; i < atoms_per_type.size(); i++)
 	{
 		types_atom_positions.push_back(arma::mat(3, atoms_per_type[i]));
@@ -255,11 +205,9 @@ void VASP_data::read_POSCAR_like(std::string file_name, std::fstream& file)
 		atom_positions = arma::join_rows(atom_positions, types_atom_positions[i]);
 	}
 	getline(file, line); // Skip the line before charge density data
-
 	getline(file, line);
 
 	std::stringstream ss2(line);
-	NGiF.clear();
 	for (int i = 0; i < 3; i++)
 	{
 		ss2 >> int_read;
@@ -270,46 +218,22 @@ void VASP_data::read_POSCAR_like(std::string file_name, std::fstream& file)
 void VASP_data::read_CHGCAR(std::string filename)
 {
 	std::fstream file;
-	if (charge_density_raw != nullptr)
-	{
-		for (int i = 0; i < NGiF[0]; i++)
-		{
-			for (int j = 0; j < NGiF[1]; j++)
-			{
-				delete[] charge_density_raw[i][j];
-				delete[] charge_density[i][j];
-			}
-			delete[] charge_density_raw[i];
-			delete[] charge_density[i];
-		}
-		delete[] charge_density_raw;
-		delete[] charge_density;
-	}
 	read_POSCAR_like(filename, file);
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
 
 	
-	charge_density_raw = new double** [NGiF[0]];
-	charge_density = new double** [NGiF[0]];
-	for (int i = 0; i < NGiF[0]; i++)
-	{
-		charge_density_raw[i] = new double* [NGiF[1]];
-		charge_density[i] = new double* [NGiF[1]];
-		for (int j = 0; j < NGiF[1]; j++)
-		{
-			charge_density_raw[i][j] = new double[NGiF[2]];
-			charge_density[i][j] = new double[NGiF[2]];
-		}
-	}
+	charge_density_raw = arma::cube(NGiF[0], NGiF[1], NGiF[2], arma::fill::zeros);
+	charge_density = arma::cube(NGiF[0], NGiF[1], NGiF[2], arma::fill::zeros);
+
 	for (int i = 0; i < total_grid_points; i++)
 	{
 		int ix = i % NGiF[0];
 		int iy = (i / NGiF[0]) % NGiF[1];
 		int iz = i / (NGiF[0] * NGiF[1]);
-		file >> charge_density_raw[ix][iy][iz];
+		file >> charge_density_raw(ix, iy, iz);
 		//charge_density[ix][iy][iz] = charge_density_raw[ix][iy][iz] / total_grid_points / cell_volume;
-		charge_density[ix][iy][iz] = charge_density_raw[ix][iy][iz] / total_grid_points;
+		charge_density(ix, iy, iz) = charge_density_raw(ix, iy, iz) / total_grid_points;
 	}
 	file.close();
 }
@@ -317,39 +241,19 @@ void VASP_data::read_CHGCAR(std::string filename)
 void VASP_data::read_LOCPOT(std::string filename)
 {
 	std::fstream file;
-	if (potential != nullptr)
-	{
-		for (int i = 0; i < NGiF[0]; i++)
-		{
-			for (int j = 0; j < NGiF[1]; j++)
-			{
-				delete[] potential[i][j];
-			}
-			delete[] potential[i];
-		}
-		delete[] potential;
-	}
 	read_POSCAR_like(filename, file);
 
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
 	int ix = 0, iy = 0, iz = 0;
 	
-	potential = new double** [NGiF[0]];
-	for (int i = 0; i < NGiF[0]; i++)
-	{
-		potential[i] = new double* [NGiF[1]];
-		for (int j = 0; j < NGiF[1]; j++)
-		{
-			potential[i][j] = new double[NGiF[2]];
-		}
-	}
+	potential = arma::cube(NGiF[0], NGiF[1], NGiF[2], arma::fill::zeros);
 	for (int i = 0; i < total_grid_points; i++)
 	{
 		ix = i % NGiF[0];
 		iy = (i / NGiF[0]) % NGiF[1];
 		iz = i / (NGiF[0] * NGiF[1]);
-		file >> potential[ix][iy][iz];
+		file >> potential(ix,iy,iz);
 		//potentai lcan have up to 4 datasets for spin polarized calculations, but we only read the first one here
 		//current example has 4 but magmom is set to 0 for all atoms, so the other 3 datasets are mostly zeros
 	}
@@ -371,7 +275,7 @@ double VASP_data::count_total_electrons_double()
 				{
 					for (int k = 0; k < NGiF[2]; k++)
 					{
-						nel += charge_density_raw[i][j][k];
+						nel += charge_density_raw(i,j,k);
 					}
 				}
 			}
@@ -403,7 +307,7 @@ void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string 
 			{ 
 				for (int j = 0; j < NGiF[1]; j++) // y index
 				{ 
-					sum += potential[i][j][k];
+					sum += potential(i,j,k);
 				}
 			}
 			potential_z[k] = sum / total_xy_points;
@@ -468,7 +372,7 @@ arma::vec VASP_data::calc_dipole_moment(arma::vec center, std::vector<int> start
 				for (int k = start[2]; k < end[2]; k++)
 				{
 					pos = i * a / NGiF[0] + j * b / NGiF[1] + k * c / NGiF[2];
-					dipole_mom += -charge_density[i][j][k] * (pos - center);
+					dipole_mom += -charge_density(i,j,k) * (pos - center);
 				}
 			}
 		}
@@ -492,7 +396,7 @@ void VASP_data::write_potential(std::string filename)
 				for (int k = 0; k < NGiF[2]; k++)
 				{
 					pos = i * 1.0 / NGiF[0] * a + j * 1.0 / NGiF[1] * b + k * 1.0 / NGiF[2] * c;
-					file << pos(0) << " " << pos(1) << " " << pos(2) << " " << potential[i][j][k] << "\n";
+					file << pos(0) << " " << pos(1) << " " << pos(2) << " " << potential(i,j,k) << "\n";
 				}
 			}
 		}
@@ -530,23 +434,26 @@ void VASP_data::read_DOS(std::string filename, int ions, std::string format)
 
 			// allocate memory for DOS data
 			dos_data.clear();
-			std::vector<std::vector<std::vector<double>>> dos_data(ions, std::vector<std::vector<double>>(NDOS, std::vector<double>(10, 0.0)));
+			arma::mat ios_dos; 
 			//skip first set with two columns (total DOS)
 			for (int i = 0; i < NDOS; i++) getline(file, line);
 
 			// read DOS data
 			for (int ion = 0; ion < ions; ion++)
 			{
+				ios_dos = arma::mat(1, 10, arma::fill::zeros); // energy + 9 orbitals (s, py, pz, px, dxy, dyz, dz2, dxz, dx2-y2)
 				getline(file, line); // skip header line for each ion
 				for (int i = 0; i < NDOS; i++)
 				{
+					
 					getline(file, line);
 					std::stringstream ss2(line);
 					for (int j = 0; j < 10; j++)
 					{
-						ss2 >> dos_data[ion][i][j];
+						ss2 >> ios_dos(i,j);
 					}
 				}
+				dos_data.push_back(ios_dos);
 			}
 			file.close();
 		}
@@ -558,22 +465,23 @@ void VASP_data::read_DOS(std::string filename, int ions, std::string format)
 	}
 }
 
-std::vector<std::vector<std::vector<double>>> VASP_data::sum_DOS_types(std::vector<int>& sets)
+arma::mat VASP_data::sum_DOS_types(std::vector<int>& sets)
 {
 	if (checkdos())
 	{
-		int ions = dos_data.size(), NDOS = dos_data[0].size(), num_types = sets.size();
+		int ions = dos_data.size(), NDOS = dos_data[0].n_rows, num_types = sets.size();
+		arma::mat results;
 		// sanity check
 		int total_ions = 0;
-		if (ions == 0) return { {} };
+		if (ions == 0) return results;
 		for (int set_size : sets) total_ions += set_size;
 		if (total_ions != ions)
 		{
 			std::cerr << "Error: Sum of sets doesn't match total ions" << std::endl;
-			return { {} };
+			return results;
 		}
 
-		std::vector<std::vector<std::vector<double>>> results(num_types, std::vector<std::vector<double>>(NDOS, std::vector<double>(2, 0.0)));
+		results = arma::mat(NDOS, 1 + num_types); // first column for energy, next columns for each type
 		int ion_index = 0;
 		for (int type_id = 0; type_id < num_types; type_id++)
 		{
@@ -583,11 +491,11 @@ std::vector<std::vector<std::vector<double>>> VASP_data::sum_DOS_types(std::vect
 			{
 				for (int j = 0; j < NDOS; j++)
 				{
-					results[type_id][j][0] = dos_data[ion_index][j][0]; // energy value
+					results(j, 0) = dos_data.at(ion_index)(j, 0); //energy column, should be the same for all ion; could probably just skip this step after the first ion
 					// sum over all orbitals (index 1 to 9)
 					for (int k = 1; k < 10; k++)
 					{
-						results[type_id][j][1] += dos_data[ion_index][j][k];
+						results(j, type_id) += dos_data[ion_index](j, k);
 					}
 				}
 				ion_index++;
@@ -607,7 +515,7 @@ void VASP_data::read_EIGENVAL(std::string filename)
 		// skip first 5 lines
 		std::string line;
 		double energy;
-		int occ;
+		int occ,kpoints,NBANDS;
 		for (int i = 0; i < 5; i++)
 		{
 			getline(file, line);
@@ -615,26 +523,21 @@ void VASP_data::read_EIGENVAL(std::string filename)
 		getline(file, line);
 		std::stringstream ss(line);
 		ss >> kpoints >> kpoints >> NBANDS; // second number is kpoints, third number is NBANDS
-		BS = new double* [kpoints];
-		KPOINTS = new double* [kpoints];
-		for (int i=0 ; i<kpoints; i++)
-		{
-			BS[i] = new double[NBANDS];
-			KPOINTS[i] = new double[4]; // 3 for k-point coordinates and 1 for weight (if needed in the future)
-		}
+		BS = arma::mat(kpoints, NBANDS, arma::fill::zeros);
+		KPOINTS = arma::mat(kpoints, 4, arma::fill::zeros); // 3 for k-point coordinates and 1 for weight (if needed in the future)
 		for (int k = 0; k < kpoints; k++)
 		{
 			getline(file, line); // skip empty line before each k-point block
 			getline(file, line); // read k-point coordinates
 			std::stringstream ss(line);
-			ss >> KPOINTS[k][0] >> KPOINTS[k][1] >> KPOINTS[k][2] >> KPOINTS[k][3]; // k-point coordinates in reciprocal space, fourth number is weight
+			ss >> KPOINTS(k,0) >> KPOINTS(k,1) >> KPOINTS(k,2) >> KPOINTS(k,3); // k-point coordinates in reciprocal space, fourth number is weight
 			for (int b = 0; b < NBANDS; b++)
 			{
 				getline(file, line);
 				std::stringstream ss2(line);
 
 				ss2 >> occ >> energy >> occ; // first number band number, second number energy, third number occupation. We only care about energy here.
-				BS[k][b] = energy;
+				BS(k,b) = energy;
 			}
 		}
 		file.close();
@@ -655,17 +558,18 @@ void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path
 
 		file.open(full_filename, std::ios::out);
 		file << std::fixed << std::setprecision(8);
+		int kpoints = this->KPOINTS.n_rows, NBANDS = this->BS.n_cols;
 
 		int max_k_width = std::to_string(kpoints).length();
 		int max_band_width = 12;  // Enough for -XX.XXXXXXXX format (-12.34567800)
 		for (int k = 0; k < kpoints; k++)
 		{
-			if (only_path && (KPOINTS[k][3] != 0.0)) continue; // skip k-points that are not on the path (weight not zero)
+			if (only_path && (KPOINTS(k,3) != 0.0)) continue; // skip k-points that are not on the path (weight not zero)
 			file <<std::setw(max_k_width)<< k + 1;
-			if (verbose_kpts) file << " " << std::setw(10) << KPOINTS[k][0] << " " << std::setw(10) << KPOINTS[k][1] << " " << std::setw(10) << KPOINTS[k][2];
+			if (verbose_kpts) file << " " << std::setw(10) << KPOINTS(k,0) << " " << std::setw(10) << KPOINTS(k,1) << " " << std::setw(10) << KPOINTS(k,2);
 			for (int b = 0; b < NBANDS; b++)
 			{
-				file  << " " << std::setw(max_band_width) << BS[k][b];
+				file  << " " << std::setw(max_band_width) << BS(k,b);
 			}
 			file << "\n";
 		}
@@ -710,13 +614,11 @@ arma::vec VASP_data::calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::
 	return force;
 }
 
-void VASP_data::write_DOS_sum_types(std::string id, const std::vector<std::vector<std::vector<double>>>& dos_summed, const std::vector<std::string>& names)
+void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed, const std::vector<std::string>& names)
 {
 	std::fstream file;
-
-	int num_types = dos_summed.size();
-	int NDOS = dos_summed[0].size();
-	for (int type_id = 0; type_id < num_types; type_id++)
+	int NDOS = dos_summed.n_rows, type_num = dos_summed.n_cols - 1;
+	for (int type_id = 0; type_id < type_num; type_id++)
 	{
 		std::string file_name = "workspace\\" + id + "_" + names[type_id] + "_DOS_sum.txt";
 		file.open(file_name, std::ios::out);
@@ -725,7 +627,7 @@ void VASP_data::write_DOS_sum_types(std::string id, const std::vector<std::vecto
 		file << "# Energy (eV)   DOS\n";
 		for (int i = 0; i < NDOS; i++)
 		{
-			file << dos_summed[type_id][i][0] << " " << dos_summed[type_id][i][1] << "\n";
+			file << dos_summed(i, 0) << " " << dos_summed(i, type_id+1) << "\n";
 		}
 		file << "\n\n";
 		file.close();

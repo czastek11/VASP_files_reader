@@ -474,6 +474,7 @@ int main()
 	data.read_EIGENVAL("workspace\\EIGENVAL");
 	data.write_BS(id, true, false);
 	//*/
+		/*
 		job_name = "MoS2_vacum_pot_layers";
 		VASP_data data = VASP_data();
 		arma::mat cell_matrix;
@@ -496,6 +497,11 @@ int main()
 				data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "layered");
 			}
 		}
+		//*/
+		job_name = "debug";
+		VASP_data data = VASP_data();
+		data.read_EIGENVAL("workspace\\EIGENVAL_bulk");
+		data.write_BS("MoS2_bulk_BS", true, false);
 	}
 	catch (const std::exception& ex) {
 		cerr << "Error at " << job_name<< " " << ex.what() << endl;
