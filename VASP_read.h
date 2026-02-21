@@ -19,6 +19,7 @@ public:
 	~VASP_data();
 	static arma::mat sorting_positions(arma::mat positions, std::string method);
 	std::vector<int> get_mesh_indices(arma::vec pos);
+	void read_POSCAR(std::string filename);
 	void read_CHGCAR(std::string filename);
 	void read_LOCPOT(std::string filename);
 	double count_total_electrons_double();
@@ -27,8 +28,8 @@ public:
 	void write_potential_averaged_xy_z(std::string filename, std::string period_type);
 	arma::vec calc_dipole_moment(arma::vec center, std::vector<int> start, std::vector<int> end);
 	void write_potential(std::string filename);
-	void read_DOS(std::string filename, int ions, std::string format);
-	arma::mat sum_DOS_types(std::vector<int>& sets);
+	void read_DOS(std::string filename, int ions, bool spin_orbit, int m);
+	arma::mat sum_DOS_types(int atoms_sep_type,int orbitals_sep_type);
 	void read_EIGENVAL(std::string filename);
 	void write_BS(std::string filename, bool verbose_kpts, bool only_path);
 	void write_BS(std::string filename);
