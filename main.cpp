@@ -468,11 +468,29 @@ int main()
 		cerr << "Error at::" << ex.what() << endl;
 	}
 	//*/
-		/*
-	string id = "WSe2_monolayer";
+	/*
+	string id1 = "MoSe2", id2 = "WS2", layer = "mono", so1 = "no_so", so2 = "so";
+	vector<string> id_list = { id1, id2 };
+	vector<string> so_list = { so1, so2 };
+	vector<string> layer_list = { layer, ""};
+	body = "EIGENVAL";
 	VASP_data data = VASP_data();
-	data.read_EIGENVAL("workspace\\EIGENVAL");
-	data.write_BS(id, true, false);
+
+	for (int i = 0; i < id_list.size(); i++)
+	{
+		for(int j = 0; j < so_list.size(); j++)
+		{
+			for(int k = 0; k < layer_list.size(); k++)
+			{
+				if(layer_list.at(k) == "") job_name = body + "_" + id_list.at(i) + "_" + so_list.at(j);
+				else job_name = body + "_" + layer_list.at(k) + "_" + id_list.at(i) + "_" + so_list.at(j);
+				cout<< "Processing " << job_name << endl;
+				data.read_EIGENVAL("workspace/"+job_name);
+	            data.write_BS(job_name, true, false);
+			}
+		}
+	}
+
 	//*/
 		/*
 		job_name = "MoS2_vacum_pot_layers";
@@ -498,10 +516,12 @@ int main()
 			}
 		}
 		//*/
+		///*
 		job_name = "debug";
 		VASP_data data = VASP_data();
 		data.read_EIGENVAL("workspace\\EIGENVAL_bulk");
 		data.write_BS("MoS2_bulk_BS", true, false);
+		//*/
 	}
 	catch (const std::exception& ex) {
 		cerr << "Error at " << job_name<< " " << ex.what() << endl;

@@ -6,8 +6,8 @@
             "type": "shell",
             "command": "g++",
             "args": [
-                "-std=c++11",
-                "${workspaceFolder}/**.cpp",
+                "-std=c++17",
+                "${workspaceFolder}/*.cpp",
                 "-o",
                 "vasp_reader",
                 "-O2",

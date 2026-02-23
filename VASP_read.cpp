@@ -22,7 +22,43 @@ std::vector<double> moving_average(std::vector<double> data, int window_size)
 	return averaged;
 }
 
-VASP_data::VASP_data() : NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(), charge_density_raw(), charge_density(), potential(), dos_data(), KPOINTS(), BS()
+void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec base_vec, int rep, bool add_vacuum_below, bool add_vacuum_above)
+{
+	arma::mat cart_new;
+	for (int i = 0; i < rep+1; i++)
+	{
+		if(add_vacuum_below && i==0)
+		{
+			for(int t = 0; t < cart_types.size(); t++)
+			{
+				cart_new = cart_types[t];
+				for(int pos = 0 ; pos < cart_new.n_cols; pos++)
+				{
+					cart_new.col(pos) += base_vec;
+				}
+				cart_types[t] = cart_new;
+			}
+				
+		}
+		else if (i<rep)
+		{
+			for(int t = 0; t < cart_types.size(); t++)
+			{
+				cart_new = cart_types[t];
+				for(int pos = 0 ; pos < cart_new.n_cols; pos++)
+				{
+					cart_new.col(pos) += base_vec;
+				}
+				cart_types[t] = arma::join_rows(cart_types[t], cart_new);
+			}
+		}
+	}
+}
+
+VASP_data::VASP_data() :
+ 	NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(),
+	charge_density_raw(), charge_density(), potential(), dos_data(), 
+  	KPOINTS(), BS(), atom_names()
 {
 	cell_matrix = arma::mat(3, 3, arma::fill::zeros);
 }
@@ -31,7 +67,7 @@ VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool r
 {
 	if (read_CHGCAR) this->read_CHGCAR(file_path + "CHGCAR");
 	if (read_LOCPOT) this->read_LOCPOT(file_path + "LOCPOT");
-	if (read_DOS) this->read_DOS(file_path + "DOSCAR", ions, format);
+	if (read_DOS) this->read_DOS(file_path + "DOSCAR", ions, false, 2); // currently only support non-spin-orbit DOSCAR with s,p,d,f orbitals separated. Will add more options in the future if needed.
 	if (read_EIGENVAL) this->read_EIGENVAL(file_path + "EIGENVAL");
 }
 
@@ -177,9 +213,15 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 	}
 
 	getline(file, line);
-	getline(file, line); // Skip the line after cell matrix
-	getline(file, line);
 
+	getline(file, line); // read the line with atom names, which is optional in VASP POSCAR format. If not present, we will just have an empty atom_names vector and rely on atoms_per_type for counting.
+	std::stringstream ss4(line);
+	while (ss4 >> word)
+	{
+		atom_names.push_back(word);
+	}
+
+	getline(file, line);
 	std::stringstream ss(line);
 	while (ss >> int_read)
 	{
@@ -272,6 +314,54 @@ void VASP_data::read_LOCPOT(std::string filename)
 	file.close();
 }
 
+void VASP_data::write_POSCAR(std::string filename)
+{
+	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_POSCAR");
+	std::fstream file;
+	file.open(fullPath, std::ios::out);
+	if (!file.is_open())
+	{
+		std::cerr << "Error opening file for writing: " << fullPath << std::endl;
+		throw std::runtime_error("Error opening file for writing");
+	}
+	for(int i=0 ; i< atoms_per_type.size(); i++)
+	{
+		file << atom_names[i] << atoms_per_type[i] << " ";
+	}
+	file<<std::fixed << std::setprecision(16);
+	file<< "\n";
+	file << "   "<<1.0<<"\n";
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			if(cell_matrix(i,j)>=0) file<<" ";
+			file << "   " << cell_matrix(i, j);
+		}
+		file << "\n";
+	}
+	file<<"  ";
+	for(int i =0; i<atom_names.size(); i++)
+	{
+		file << atom_names[i] << "     ";
+	}
+	file << "\n";
+	file<<"  Direct\n";
+	for (int i = 0; i < types_atom_positions.size(); i++)
+	{
+		for (int j = 0; j < types_atom_positions[i].n_cols; j++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				if(types_atom_positions[i](k,j)>=0) file<<" ";
+				file << "   " << std::fixed << std::setprecision(16) << types_atom_positions[i](k, j);
+			}
+			file << "\n";
+		}
+	}
+	file.close();
+}
+
 double VASP_data::count_total_electrons_double()
 {
 	if (checkcharge())
@@ -344,9 +434,10 @@ void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string 
 		if (period_type!="none") potential_z = moving_average(potential_z, window);
 
 
-		std::string full_filename = "workspace\\" + filename + "_potential_z.txt";
+		//std::string full_filename = "workspace\\" + filename + "_potential_z.txt";
+		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_z.txt");
 		std::fstream file;
-		file.open(full_filename, std::ios::out);
+		file.open(fullPath, std::ios::out);
 		double z_real;
 		for (int i = 0; i < NGiF[2]; i++)
 		{
@@ -398,9 +489,10 @@ void VASP_data::write_potential(std::string filename)
 	if (checkpot())
 	{
 		arma::vec a = cell_matrix.col(0), b = cell_matrix.col(1), c = cell_matrix.col(2), pos;
-		std::string full_filename = "workspace\\" + filename + "_potential.txt";
+		//std::string full_filename = "workspace\\" + filename + "_potential.txt";
+		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential.txt");
 		std::fstream file;
-		file.open(full_filename, std::ios::out);
+		file.open(fullPath, std::ios::out);
 		for (int i = 0; i < NGiF[0]; i++)
 		{
 			for (int j = 0; j < NGiF[1]; j++)
@@ -511,10 +603,11 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 					for(int orb = 0 ; orb < orb_sets.at(orb_set); orb++)
 					{
 						col = orb_col * ion_set + orb_set;
-						for(int en =0 ; en<NDOS; en++)
-						{
-							results(en, 1 + col) += dos_data.at(ion_index)(en,1 + orb_index);
-						}
+						results.col(col) += dos_data.at(ion_index).col(1 + orb_index);
+						//for(int en =0 ; en<NDOS; en++)
+						//{
+						//	results(en, 1 + col) += dos_data.at(ion_index)(en,1 + orb_index);
+						//}
 						orb_index ++;
 					}
 				}
@@ -597,10 +690,11 @@ void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path
 {
 	if (checkBS() && checkKPOINTS()) //band structure and k-points must be loaded before writing band structure data
 	{
-		std::string full_filename = "workspace\\" + filename + "_BS.txt";
+		//std::string full_filename = "workspace/" + filename + "_BS.txt";
+		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_BS.txt");
 		std::ofstream file;
 
-		file.open(full_filename, std::ios::out);
+		file.open(fullPath, std::ios::out);
 		file << std::fixed << std::setprecision(8);
 		int kpoints = this->KPOINTS.n_rows, NBANDS = this->BS.n_cols;
 
@@ -631,6 +725,49 @@ arma::mat VASP_data::get_cell_matrix()
 	return cell_matrix;
 }
 
+VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<bool> add_vacuum)
+{
+	arma::mat new_cell_matrix = cell_matrix;
+	arma::vec a = cell_matrix.row(0).t();
+	arma::vec b = cell_matrix.row(1).t();
+	arma::vec c = cell_matrix.row(2).t();
+	std::vector<arma::mat> new_types_atom_positions; // start with original positions, then we will add new positions for the supercell
+	std::vector<int> new_atoms_per_type = atoms_per_type;
+	std::vector<arma::mat> cart_types;
+	for (int i = 0; i < types_atom_positions.size(); i++)
+	{
+		cart_types.push_back(cell_matrix.t() * types_atom_positions[i]); // convert to cartesian coordinates for easier manipulation
+	}
+	arma::mat cart_new;
+	new_cell_matrix.row(0) *= rep_x + add_vacuum[0] + add_vacuum[1]; // additonal lattice vector for vacuum below and above the original cell in x direction
+	new_cell_matrix.row(1) *= rep_y + add_vacuum[2] + add_vacuum[3]; // additonal lattice vector for vacuum below and above the original cell in y direction
+	new_cell_matrix.row(2) *= rep_z + add_vacuum[4] + add_vacuum[5]; // additonal lattice vector for vacuum below and above the original cell in z direction
+	for ( int i=0; i< atoms_per_type.size(); i++)
+	{
+		new_atoms_per_type[i] *= (rep_x * rep_y * rep_z);
+	}
+	multiply_cell_in_direction(cart_types, a, rep_x, add_vacuum[0], add_vacuum[1]);
+	multiply_cell_in_direction(cart_types, b, rep_y, add_vacuum[2], add_vacuum[3]);
+	multiply_cell_in_direction(cart_types, c, rep_z, add_vacuum[4], add_vacuum[5]);
+	for (int i = 0; i < cart_types.size(); i++)
+	{
+		new_types_atom_positions.push_back(arma::inv(new_cell_matrix.t()) * cart_types[i]); // convert back to fractional coordinates
+	}
+	arma::mat new_atom_positions;
+	for (int i = 0; i < new_types_atom_positions.size(); i++)
+	{
+		new_atom_positions = arma::join_rows(new_atom_positions, new_types_atom_positions[i]);
+	}
+	VASP_data supercell;
+	supercell.cell_matrix = new_cell_matrix;
+	supercell.atoms_per_type = new_atoms_per_type;
+	supercell.types_atom_positions = new_types_atom_positions;
+	supercell.atom_positions = new_atom_positions;
+	supercell.atom_names = atom_names;
+	return supercell;
+
+}
+
 double VASP_data::calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R)
 {
 	//double epsilon_0 = 8.854187817e-12; // vacuum permittivity in F/m
@@ -658,34 +795,110 @@ arma::vec VASP_data::calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::
 	return force;
 }
 
-void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed, const std::vector<std::string>& names)
+void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed, int atoms_sep_type,int orbitals_sep_type, bool header)
 {
 	std::vector<char> orb = {'s', 'p' , 'd' , 'f' , 'g'};
-		std::vector<std::string> orb_spec = {
+	std::vector<std::string> orb_spec = {
 		"s", 
 		"px","py","pz", 
 		"dx2_xy2", "dx2_xy2", "dx2_xy2", "dx2_xy2", "dx2_xy2",
 		"fxxx","fxxx","fxxx","fxxx","fxxx","fxxx","fxxx",
 		"gxxx","gxxx","gxxx","gxxx","gxxx","gxxx","gxxx","gxxx","gxxx"
-		}; //TO DO : check how those are called and sorted on VASP wiki
+	}; //TO DO : check how those are called and sorted on VASP wiki
+
+	std::vector<int> atom_sets;
+	std::vector<int> orb_sets;
+	int ions = dos_data.size(), NDOS = dos_data[0].n_rows, atom_types= atoms_per_type.size();
+	int l_tot = dos_data[0].n_cols -1 , m = (l_tot -1) / 2;
+	std::vector<std::string> atom_names;
+	std::vector<std::string> orb_names;
+	bool poscar_names;
+	if(atom_names.size() == 0) // if atom names are not provided in POSCAR, we will just use generic names like Atom1, Atom2, etc.
+	{
+		poscar_names = false;
+		for(int i=0 ; i<atom_types; i++)
+		{
+			atom_names.push_back("Atom" + std::to_string(i+1));
+		}
+	}
+	else
+	{
+		if(atom_names.size() != atom_types)
+		{
+			std::cerr << "Error: The number of atom names does not match the number of atom types. Please check your POSCAR file." << std::endl;
+			throw std::runtime_error("Error: Mismatch between atom names and atom types");
+		}
+	}
+
+
+	if(atoms_sep_type == 0) 
+	{
+		atom_sets.push_back(ions);
+		atom_names.push_back("Total");
+	}
+	else if (atoms_sep_type == 1) 
+	{
+		atom_sets = atoms_per_type;
+		if(poscar_names) atom_names = this->atom_names; // use atom names from POSCAR if available, otherwise use generic names
+	}
+	else if(atoms_sep_type == 2) 
+	{
+		for(int i=0 ; i<ions ; i++) atom_sets.push_back(1);
+		if(poscar_names)
+		{
+			for(int i=0 ; i<atom_types; i++) 
+			{
+				for(int j=0 ; j<atoms_per_type[i]; j++)
+				{
+					atom_names.push_back(this->atom_names[i] + "_" + std::to_string(j+1));
+				}
+			}
+		} 
+	}
+
+	if(orbitals_sep_type == 0) 
+	{
+		orb_sets.push_back(l_tot);
+		orb_names.push_back("Total");
+	}
+	else if (orbitals_sep_type == 1) 
+	{
+		for(int i=0 ; i<m ; i++) orb_sets.push_back(i*2+1);
+		for(int i=0 ; i<m ; i++) orb_names.push_back(std::string(1, orb.at(i)) + "-orbitals");
+
+	}
+	else if(orbitals_sep_type == 2) 
+	{
+		for(int i=0 ; i<l_tot ; i++) orb_sets.push_back(1);
+		orb_names = orb_spec; // use specific orbital names for each column if orbitals are separated
+	}
+
 	std::fstream file;
-	std::string file_name = "workspace\\" + id + "_DOS_sum.txt";
-	file.open(file_name, std::ios::out);
+	//std::string file_name = "workspace\\" + id + "_DOS_sum.txt";
+	std::filesystem::path fullPath = std::filesystem::path("workspace") / (id + "_DOS_sum.txt");
+	file.open(fullPath, std::ios::out);
 	file.precision(12);
-	int NDOS = dos_summed.n_rows, type_num = dos_summed.n_cols - 1;
-	for (int i = -1; i < NDOS; i++)
+	int type_num = dos_summed.n_cols - 1;
+	int orb_col = orb_sets.size();
+	if (header)
+	{
+		std::string name;
+		file << "# DOS summed " << "\n";
+		file << "# Energy (eV)  ";
+		for (int type_id = 0; type_id < type_num; type_id++)
+		{
+			name = atom_names.at(type_id / orb_col) + "_" + orb_names.at(type_id % orb_col);
+			file << name << "  ";
+		}
+		file << "\n";
+	}
+	for (int i = 0; i < NDOS; i++)
 		{
 			for (int type_id = 0; type_id < type_num; type_id++)
 			{
-			file << "# DOS summed " << "\n";
-			file << "# Energy (eV)  ";
-		
-		
-			file << dos_summed(i, 0) << " " << dos_summed(i, type_id+1) << "\n";
-		
-		file << "\n\n";
-		
+				file << dos_summed(i, type_id) << " "; 	
 			}
+			file << "\n";
 		}
 	file.close();
 }
