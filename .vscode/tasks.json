@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build vasp_reader",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-std=c++17",
+                "${workspaceFolder}/*.cpp",
+                "-o",
+                "vasp_reader",
+                "-O2",
+                "-larmadillo"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
