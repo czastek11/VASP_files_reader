@@ -25,7 +25,7 @@ std::vector<double> moving_average(std::vector<double> data, int window_size)
 void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec base_vec, int rep, bool add_vacuum_below, bool add_vacuum_above)
 {
 	arma::mat cart_new;
-	std::vector<arma::mat> strating_cart_types = cart_types;
+	std::vector<arma::mat> starting_cart_types = cart_types;
 	std::vector<int> starting_num_types;
 	for(int i =0 ;i<cart_types.size();i++) starting_num_types.push_back(cart_types.at(i).n_cols);
 	for (int i = 0; i < rep; i++)
@@ -34,20 +34,20 @@ void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec ba
 		{
 			for(int t = 0; t < cart_types.size(); t++)
 			{
-				cart_new = strating_cart_types[t];
+				
 				for(int pos = 0 ; pos < starting_num_types.at(t); pos++)
 				{
-					cart_new.col(pos) += base_vec;
+					starting_cart_types[t].col(pos) += base_vec;
 				}
-				cart_types[t] = cart_new;
-			}
 				
+			}
+			cart_types = starting_cart_types;
 		}
 		else if(i>0)
 		{
 			for(int t = 0; t < cart_types.size(); t++)
 			{
-				cart_new = strating_cart_types[t];
+				cart_new = starting_cart_types[t];
 				for(int pos = 0 ; pos < starting_num_types.at(t); pos++)
 				{
 					cart_new.col(pos) += base_vec * i;
@@ -219,6 +219,7 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 
 	getline(file, line); // read the line with atom names, which is optional in VASP POSCAR format. If not present, we will just have an empty atom_names vector and rely on atoms_per_type for counting.
 	std::stringstream ss4(line);
+	atom_names.clear();
 	while (ss4 >> word)
 	{
 		atom_names.push_back(word);
@@ -711,16 +712,18 @@ void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path
 
 		int max_k_width = std::to_string(kpoints).length();
 		int max_band_width = 12;  // Enough for -XX.XXXXXXXX format (-12.34567800)
+		int print_k=0;
 		for (int k = 0; k < kpoints; k++)
 		{
 			if (only_path && (KPOINTS(k,3) != 0.0)) continue; // skip k-points that are not on the path (weight not zero)
-			file <<std::setw(max_k_width)<< k + 1;
+			file <<std::setw(max_k_width)<< print_k + 1;
 			if (verbose_kpts) file << " " << std::setw(10) << KPOINTS(k,0) << " " << std::setw(10) << KPOINTS(k,1) << " " << std::setw(10) << KPOINTS(k,2);
 			for (int b = 0; b < NBANDS; b++)
 			{
 				file  << " " << std::setw(max_band_width) << BS(k,b);
 			}
 			file << "\n";
+			print_k++;
 		}
 		file.close();
 	}

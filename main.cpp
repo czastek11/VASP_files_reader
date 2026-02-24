@@ -11,35 +11,33 @@ using namespace std;
 
 int main()
 {
-	string path = "C:\\nauka\\pwr\\DFT\\TDMS\\sprezynki_cd\\charge densities\\";
+	//string path = "C:\\nauka\\pwr\\DFT\\TDMS\\sprezynki_cd\\charge densities\\";
 	//string body = "CHGCAR_";
-	string body = "LOCPOT_";
-	vector<string> metals = { "W", "Mo" };
-	vector<string> chalcogenides = { "S2_", "Se2_" };
-	vector<string> layers = { "bulk","2layer","4layer","6layer", "8layer" };//{ "8layer" };
-	vector<int> layer_values = { 2,2,4,6,8 };
+	string body = "POSCAR_";
+	vector<string> metals = {  "Mo","W" };
+	vector<string> chalcogenides = { "S2", "Se2" };
+	vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
+	vector<int> layer_values = { 2,4,6,8 }; //2,
 	string job_name,id;
 	try
 	{
-		/*
-	for (const auto& metal : metals)
-	{
-		for (const auto& chalcogenide : chalcogenides)
+	///*
+		VASP_data data_og, data_mod;
+		for (const auto& metal : metals)
 		{
-			for (const auto& lay : layer)
+			for (const auto& chalcogenide : chalcogenides)
 			{
-				try {
-					string id = metal + chalcogenide + lay;
-					readout data = read_CHGCAR(path, body, id);
-					write_charge_density_integrated_xyz(id, data);
-				}
-				catch (...) {
-					cerr << "Error processing file for " << metal << " " << chalcogenide << " " << lay << endl;
+				data_og.read_POSCAR("workspace\\" + body + metal + chalcogenide);
+				cout << "Processed POSCAR for " << metal + chalcogenide << endl;
+				for (int i =0 ; i<layers.size(); i++)
+				{
+					data_mod = data_og.supercell_grid(1, 1, layer_values.at(i) / 2, {0,0,0,0,1,1});
+					id = metal + chalcogenide +"_"+ layers.at(i);
+					data_mod.write_POSCAR(id);
 				}
 			}
 		}
-	}
-	*/
+	//*/
 		/*
 	for (const auto& lay : layer)
 	{
@@ -486,7 +484,7 @@ int main()
 				else job_name = body + "_" + layer_list.at(k) + "_" + id_list.at(i) + "_" + so_list.at(j);
 				cout<< "Processing " << job_name << endl;
 				data.read_EIGENVAL("workspace/"+job_name);
-	            data.write_BS(job_name, true, false);
+	            data.write_BS(job_name, true, true);
 			}
 		}
 	}
@@ -516,11 +514,11 @@ int main()
 			}
 		}
 		//*/
-		///*
+		/*
 		job_name = "debug";
 		VASP_data data = VASP_data();
 		data.read_POSCAR("workspace/POSCAR");
-		VASP_data data2 = data.supercell_grid(1,1,1,{0,0,0,0,1,1});
+		VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
 		data2.write_POSCAR("test");
 		//*/
 	}
