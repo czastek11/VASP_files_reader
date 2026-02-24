@@ -519,8 +519,9 @@ int main()
 		///*
 		job_name = "debug";
 		VASP_data data = VASP_data();
-		data.read_EIGENVAL("workspace\\EIGENVAL_bulk");
-		data.write_BS("MoS2_bulk_BS", true, false);
+		data.read_POSCAR("workspace/POSCAR");
+		VASP_data data2 = data.supercell_grid(1,1,1,{0,0,0,0,1,1});
+		data2.write_POSCAR("test");
 		//*/
 	}
 	catch (const std::exception& ex) {

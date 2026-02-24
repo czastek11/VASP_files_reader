@@ -25,14 +25,17 @@ std::vector<double> moving_average(std::vector<double> data, int window_size)
 void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec base_vec, int rep, bool add_vacuum_below, bool add_vacuum_above)
 {
 	arma::mat cart_new;
-	for (int i = 0; i < rep+1; i++)
+	std::vector<arma::mat> strating_cart_types = cart_types;
+	std::vector<int> starting_num_types;
+	for(int i =0 ;i<cart_types.size();i++) starting_num_types.push_back(cart_types.at(i).n_cols);
+	for (int i = 0; i < rep; i++)
 	{
 		if(add_vacuum_below && i==0)
 		{
 			for(int t = 0; t < cart_types.size(); t++)
 			{
-				cart_new = cart_types[t];
-				for(int pos = 0 ; pos < cart_new.n_cols; pos++)
+				cart_new = strating_cart_types[t];
+				for(int pos = 0 ; pos < starting_num_types.at(t); pos++)
 				{
 					cart_new.col(pos) += base_vec;
 				}
@@ -40,14 +43,14 @@ void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec ba
 			}
 				
 		}
-		else if (i<rep)
+		else if(i>0)
 		{
 			for(int t = 0; t < cart_types.size(); t++)
 			{
-				cart_new = cart_types[t];
-				for(int pos = 0 ; pos < cart_new.n_cols; pos++)
+				cart_new = strating_cart_types[t];
+				for(int pos = 0 ; pos < starting_num_types.at(t); pos++)
 				{
-					cart_new.col(pos) += base_vec;
+					cart_new.col(pos) += base_vec * i;
 				}
 				cart_types[t] = arma::join_rows(cart_types[t], cart_new);
 			}
@@ -333,6 +336,7 @@ void VASP_data::write_POSCAR(std::string filename)
 	file << "   "<<1.0<<"\n";
 	for (int i = 0; i < 3; i++)
 	{
+		file<<" ";
 		for (int j = 0; j < 3; j++)
 		{
 			if(cell_matrix(i,j)>=0) file<<" ";
@@ -340,13 +344,20 @@ void VASP_data::write_POSCAR(std::string filename)
 		}
 		file << "\n";
 	}
-	file<<"  ";
+
 	for(int i =0; i<atom_names.size(); i++)
 	{
-		file << atom_names[i] << "     ";
+		file << "   "<< atom_names[i] ;
 	}
 	file << "\n";
-	file<<"  Direct\n";
+
+	for(int i = 0; i<atoms_per_type.size();i++)
+	{
+		file<<"     "<<atoms_per_type.at(i);
+	}
+	file<<"\n";
+
+	file<<"Direct\n";
 	for (int i = 0; i < types_atom_positions.size(); i++)
 	{
 		for (int j = 0; j < types_atom_positions[i].n_cols; j++)
@@ -354,7 +365,7 @@ void VASP_data::write_POSCAR(std::string filename)
 			for (int k = 0; k < 3; k++)
 			{
 				if(types_atom_positions[i](k,j)>=0) file<<" ";
-				file << "   " << std::fixed << std::setprecision(16) << types_atom_positions[i](k, j);
+				file << " " << std::fixed << std::setprecision(16) << types_atom_positions[i](k, j);
 			}
 			file << "\n";
 		}
@@ -727,6 +738,11 @@ arma::mat VASP_data::get_cell_matrix()
 
 VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<bool> add_vacuum)
 {
+	if(rep_x==0 || rep_y==0 || rep_z==0)
+	{
+		std::cerr << "One of dimensions is reduced to 0 !. Can't find proper transformation"<<std::endl;
+		throw std::runtime_error("Improper cell multiplication");
+	}
 	arma::mat new_cell_matrix = cell_matrix;
 	arma::vec a = cell_matrix.row(0).t();
 	arma::vec b = cell_matrix.row(1).t();
@@ -742,16 +758,17 @@ VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<
 	new_cell_matrix.row(0) *= rep_x + add_vacuum[0] + add_vacuum[1]; // additonal lattice vector for vacuum below and above the original cell in x direction
 	new_cell_matrix.row(1) *= rep_y + add_vacuum[2] + add_vacuum[3]; // additonal lattice vector for vacuum below and above the original cell in y direction
 	new_cell_matrix.row(2) *= rep_z + add_vacuum[4] + add_vacuum[5]; // additonal lattice vector for vacuum below and above the original cell in z direction
+	arma::mat frac = arma::inv(new_cell_matrix);
 	for ( int i=0; i< atoms_per_type.size(); i++)
 	{
 		new_atoms_per_type[i] *= (rep_x * rep_y * rep_z);
 	}
-	multiply_cell_in_direction(cart_types, a, rep_x, add_vacuum[0], add_vacuum[1]);
-	multiply_cell_in_direction(cart_types, b, rep_y, add_vacuum[2], add_vacuum[3]);
-	multiply_cell_in_direction(cart_types, c, rep_z, add_vacuum[4], add_vacuum[5]);
+	if(rep_x >1 || (add_vacuum[0]||add_vacuum[1])) multiply_cell_in_direction(cart_types, a, rep_x, add_vacuum[0], add_vacuum[1]);
+	if(rep_y >1 || (add_vacuum[2]||add_vacuum[3])) multiply_cell_in_direction(cart_types, b, rep_y, add_vacuum[2], add_vacuum[3]);
+	if(rep_z >1 || (add_vacuum[4]||add_vacuum[5])) multiply_cell_in_direction(cart_types, c, rep_z, add_vacuum[4], add_vacuum[5]);
 	for (int i = 0; i < cart_types.size(); i++)
 	{
-		new_types_atom_positions.push_back(arma::inv(new_cell_matrix.t()) * cart_types[i]); // convert back to fractional coordinates
+		new_types_atom_positions.push_back(frac.t() * cart_types[i]); // convert back to fractional coordinates
 	}
 	arma::mat new_atom_positions;
 	for (int i = 0; i < new_types_atom_positions.size(); i++)
