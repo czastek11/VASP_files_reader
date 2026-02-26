@@ -61,7 +61,7 @@ void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec ba
 VASP_data::VASP_data() :
  	NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(),
 	charge_density_raw(), charge_density(), potential(), dos_data(), 
-  	KPOINTS(), BS(), atom_names()
+	KPOINTS(), BS(), atom_names(), occupations()
 {
 	cell_matrix = arma::mat(3, 3, arma::fill::zeros);
 }
@@ -407,7 +407,7 @@ int VASP_data::count_total_electrons()
 	return static_cast<int>(count_total_electrons_double() + 0.5); // rounding to nearest integer
 }
 
-void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string period_type, int period)
+std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_type, int period)
 {
 	if (checkpot())
 	{
@@ -445,30 +445,32 @@ void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string 
 
 		if (period_type!="none") potential_z = moving_average(potential_z, window);
 
-
-		//std::string full_filename = "workspace\\" + filename + "_potential_z.txt";
-		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_z.txt");
-		std::fstream file;
-		file.open(fullPath, std::ios::out);
-		double z_real;
-		for (int i = 0; i < NGiF[2]; i++)
-		{
-			z_real = i * cell_matrix(2, 2) / NGiF[2];
-			file << z_real << " " << potential_z[i] << "\n";
-
-		}
-		file.close();
+		return potential_z;
 	}
 }
 
-void VASP_data::write_potential_averaged_xy_z(std::string filename, std::string period_type)
+std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_type)
 {
-	if(period_type!="manual") write_potential_averaged_xy_z(filename, period_type, 0.0);
+	if(period_type!="manual") return sum_potential_averaged_xy_z(period_type, 0.0);
 	else
 	{
 		std::cerr << "Error: For manual period type, you must provide a period value." << std::endl;
 		throw std::runtime_error("Error: Missing period value for manual period type");
 	}
+}
+
+void VASP_data::write_potential_z(std::string filename, std::vector<double> potential_z)
+{
+	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_z.txt");
+	std::fstream file;
+	file.open(fullPath, std::ios::out);
+	double z_real;
+	for (int i = 0; i < NGiF[2]; i++)
+	{
+		z_real = i * cell_matrix(2, 2) / NGiF[2];
+		file << z_real << " " << potential_z[i] << "\n";
+	}
+	file.close();
 }
 
 arma::vec VASP_data::calc_dipole_moment(arma::vec center, std::vector<int> start, std::vector<int> end)
@@ -673,6 +675,7 @@ void VASP_data::read_EIGENVAL(std::string filename)
 		std::stringstream ss(line);
 		ss >> kpoints >> kpoints >> NBANDS; // second number is kpoints, third number is NBANDS
 		BS = arma::mat(kpoints, NBANDS, arma::fill::zeros);
+		occupations = arma::mat(kpoints, NBANDS, arma::fill::zeros);
 		KPOINTS = arma::mat(kpoints, 4, arma::fill::zeros); // 3 for k-point coordinates and 1 for weight (if needed in the future)
 		for (int k = 0; k < kpoints; k++)
 		{
@@ -687,6 +690,7 @@ void VASP_data::read_EIGENVAL(std::string filename)
 
 				ss2 >> occ >> energy >> occ; // first number band number, second number energy, third number occupation. We only care about energy here.
 				BS(k,b) = energy;
+				occupations(k, b) = occ;
 			}
 		}
 		file.close();
@@ -737,6 +741,85 @@ void VASP_data::write_BS(std::string filename)
 arma::mat VASP_data::get_cell_matrix()
 {
 	return cell_matrix;
+}
+
+arma::mat VASP_data::get_BS()
+{
+	return BS;
+}
+
+arma::mat VASP_data::get_occupations()
+{
+	return occupations;
+}
+
+arma::rowvec VASP_data::find_kpoint_energy(arma::rowvec kpt, bool weight, int& index)
+{
+	if (checkBS() && checkKPOINTS())
+	{
+		for (int i = 0; i < BS.n_rows; i++)
+		{
+			if (arma::approx_equal(KPOINTS.row(i).subvec(0, 2), kpt, "absdiff", 1e-6))
+			{
+				if (!weight && KPOINTS(i, 3) != 0.0) continue; // if weight is not considered, skip k-points that are not on the path (weight not zero)
+				index = i;
+				return BS.row(i);
+			}
+		}
+	}
+}
+
+double VASP_data::find_band_extremum(int band_index, bool weight, int& kpt_index, bool maxormin)
+{
+	if (checkBS() && checkKPOINTS())
+	{
+		double extremum_energy = maxormin ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
+		for (int i = 0; i < BS.n_rows; i++)
+		{
+			if (!weight && KPOINTS(i, 3) != 0.0) continue; // if weight is not considered, skip k-points that are not on the path (weight not zero)
+			if (maxormin)
+			{
+				if (BS(i, band_index) > extremum_energy)
+				{
+					extremum_energy = BS(i, band_index);
+					kpt_index = i;
+				}
+			}
+			else
+			{
+				if (BS(i, band_index) < extremum_energy)
+				{
+					extremum_energy = BS(i, band_index);
+					kpt_index = i;
+				}
+			}
+
+		}
+		return extremum_energy;
+	}
+}
+
+int VASP_data::find_valence_band()
+{
+	if (checkBS() && checkKPOINTS())
+	{
+		int valence_band_index = -1;
+		for (int b = 0; b < BS.n_cols; b++)
+		{
+
+			if (occupations(0, b) > 0.5) // assuming occupation is either 0 or 1, with possible small numerical noise
+			{
+				valence_band_index = b;
+			}
+			else
+			{
+				break; // since bands are usually ordered by energy, we can break once we find an unoccupied state
+			}
+
+		}
+		return valence_band_index;
+	}
+	else return -1;
 }
 
 VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<bool> add_vacuum)

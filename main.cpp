@@ -13,15 +13,10 @@ int main()
 {
 	//string path = "C:\\nauka\\pwr\\DFT\\TDMS\\sprezynki_cd\\charge densities\\";
 	//string body = "CHGCAR_";
-	string body = "POSCAR_";
-	vector<string> metals = {  "Mo","W" };
-	vector<string> chalcogenides = { "S2", "Se2" };
-	vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
-	vector<int> layer_values = { 2,4,6,8 }; //2,
-	string job_name,id;
+	string job_name = "potential and ionisation energies";
 	try
 	{
-	///*
+	/*
 		VASP_data data_og, data_mod;
 		for (const auto& metal : metals)
 		{
@@ -434,21 +429,50 @@ int main()
 		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
 	}
 	//*/
-		/*
-	
-	string id1 = "idpol", id2 = "normal";
-	job_name = "MoS2_slab one bulk sheet";
+	///*
+    string body1 = "LOCPOT_", body2 = "EIGENVAL_";
+	vector<string> metals = { "Mo","W" };
+	vector<string> chalcogenides = { "S2", "Se2" };
+	vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
+	vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
+	vector<int> layer_values = { 2,4,6,8 }; //2,
+	string  id,filename1,filename2;
 	VASP_data data = VASP_data();
-	data.read_LOCPOT("workspace\\" + body + id1);
-	arma::mat cell_matrix = data.get_cell_matrix();
-	cout << "Volume for "+id1+": " << arma::det(cell_matrix) << endl;
-	data.write_potential_averaged_xy_z(id1 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
-
-
-	data.read_LOCPOT("workspace\\" + body + id2);
-	cell_matrix = data.get_cell_matrix();
-	cout << "Volume for " + id2 + ": " << arma::det(cell_matrix) << endl;
-	data.write_potential_averaged_xy_z(id2 + "_avg", "manual", cell_matrix(2, 2) / 3.0);
+	vector<double> potential_z, val, vac;
+	double pom;
+	int zzz;
+	fstream file;
+	for (int i = 0; i < compounds.size(); i++)
+	{
+		val.clear();
+		vac.clear();
+		for (int j = 0; j < layers.size(); j++)
+		{
+			id = compounds.at(i) + "_" + layers.at(j);
+			filename1 = "workspace\\" + body1  + id;
+			filename2 = "workspace\\" + body2  + id;
+			data.read_LOCPOT(filename1);
+			data.read_EIGENVAL(filename2);
+			if(layers.at(j) == "2layer") potential_z = data.sum_potential_averaged_xy_z("primitive");
+			else potential_z = data.sum_potential_averaged_xy_z("layered");
+			pom = data.find_band_extremum(data.find_valence_band(), true, zzz, true);
+			val.push_back(pom);
+			pom = potential_z[0];
+			vac.push_back(pom);
+			data.write_potential_z("potential_z_" + id, potential_z);
+			cout << "Processed " << id << ": Valence band maximum energy = " << val.back() << " eV, Vacuum level = " << vac.back() << " eV" << endl;
+		}
+		filename1 = "workspace\\potential_and_ionisation_energies_" + compounds.at(i) + ".txt";
+		file.open(filename1, ios::out);
+		file << "#Layer\tValence Band Maximum (eV)\tVacuum Level (eV)\tIonisation Energy (eV)\n";
+		for (int j = 0; j < layers.size(); j++)
+		{
+			double ionisation_energy = vac.at(j) - val.at(j);
+			file << layers.at(j) << "\t" << val.at(j) << "\t" << vac.at(j) << "\t" << ionisation_energy << "\n";
+		}
+		file.close();
+	}
+	
 	
 	//*/
 		/*
@@ -474,20 +498,22 @@ int main()
 	body = "EIGENVAL";
 	VASP_data data = VASP_data();
 
-	for (int i = 0; i < id_list.size(); i++)
-	{
+	//for (int i = 0; i < id_list.size(); i++)
+	//{
+	int i = 0;
 		for(int j = 0; j < so_list.size(); j++)
 		{
-			for(int k = 0; k < layer_list.size(); k++)
-			{
+			//for(int k = 0; k < layer_list.size(); k++)
+			//{
+			int k = 1;
 				if(layer_list.at(k) == "") job_name = body + "_" + id_list.at(i) + "_" + so_list.at(j);
 				else job_name = body + "_" + layer_list.at(k) + "_" + id_list.at(i) + "_" + so_list.at(j);
 				cout<< "Processing " << job_name << endl;
 				data.read_EIGENVAL("workspace/"+job_name);
 	            data.write_BS(job_name, true, true);
-			}
+			//}
 		}
-	}
+	//}
 
 	//*/
 		/*

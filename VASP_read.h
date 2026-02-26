@@ -26,8 +26,9 @@ public:
 	void write_POSCAR(std::string filename);
 	double count_total_electrons_double();
 	int count_total_electrons();
-	void write_potential_averaged_xy_z(std::string filename, std::string period_type, int period);
-	void write_potential_averaged_xy_z(std::string filename, std::string period_type);
+	std::vector<double> sum_potential_averaged_xy_z(std::string period_type, int period);
+	std::vector<double> sum_potential_averaged_xy_z(std::string period_type);
+	void write_potential_z(std::string filename, std::vector<double> potential_z);
 	arma::vec calc_dipole_moment(arma::vec center, std::vector<int> start, std::vector<int> end);
 	void write_potential(std::string filename);
 	void read_DOS(std::string filename, int ions, bool spin_orbit, int m);
@@ -37,6 +38,11 @@ public:
 	void write_BS(std::string filename);
 	void write_DOS_sum_types(std::string id, const arma::mat& dos_summed, int atoms_sep_type,int orbitals_sep_type, bool header);
 	arma::mat get_cell_matrix();
+	arma::mat get_BS();
+	arma::mat get_occupations();
+	arma::rowvec find_kpoint_energy(arma::rowvec kpt, bool weight, int& index);
+	double find_band_extremum(int band_index, bool weight, int& kpt_index, bool maxormin);
+	int find_valence_band();
 	VASP_data supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<bool> add_vacuum); 
 	static double calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R);
 	static arma::vec calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::vec R);
@@ -55,6 +61,7 @@ private:
 	std::vector<arma::mat> dos_data;
 	arma::mat KPOINTS;
 	arma::mat BS;
+	arma::mat occupations;
 	void read_POSCAR_like(std::string file_name, std::fstream& file);
 	bool checkgeo();
 	bool checkcharge();
