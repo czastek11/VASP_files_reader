@@ -538,7 +538,7 @@ void VASP_data::read_DOS(std::string filename, int ions, bool spin_orbit, int m)
 		else
 		{
 			std::string line;
-			int l_tot = m * 2 + 1;
+			int l_tot = (m+1)*(m+1);
 			int NDOS;
 			double pom;
 			for (int i = 0; i < 5; i++)// skip first 5 lines
@@ -555,26 +555,26 @@ void VASP_data::read_DOS(std::string filename, int ions, bool spin_orbit, int m)
 
 			// allocate memory for DOS data
 			dos_data.clear();
-			arma::mat ios_dos; 
+			arma::mat ion_dos; 
 			//skip first set with two columns (total DOS)
 			for (int i = 0; i < NDOS; i++) getline(file, line);
 
 			// read DOS data
 			for (int ion = 0; ion < ions; ion++)
 			{
-				ios_dos = arma::mat(1, l_tot+1, arma::fill::zeros); // energy + l_tot orbitals 1s,3p,5d,7f,...
+				ion_dos = arma::mat(NDOS, l_tot+1, arma::fill::zeros); // energy + l_tot orbitals 1s,3p,5d,7f,...
 				getline(file, line); // skip header line for each ion
 				for (int i = 0; i < NDOS; i++)
 				{
 					
 					getline(file, line);
 					std::stringstream ss2(line);
-					for (int j = 0; j < 10; j++)
+					for (int j = 0; j < l_tot+1; j++)
 					{
-						ss2 >> ios_dos(i,j);
+						ss2 >> ion_dos(i,j);
 					}
 				}
-				dos_data.push_back(ios_dos);
+				dos_data.push_back(ion_dos);
 			}
 			file.close();
 		}
@@ -591,7 +591,7 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 	if (checkdos())
 	{
 		int ions = dos_data.size(), NDOS = dos_data[0].n_rows, atom_types= atoms_per_type.size();
-		int l_tot = dos_data[0].n_cols -1 , m = (l_tot -1) / 2;
+		int l_tot = dos_data[0].n_cols -1 , m = sqrt(l_tot)-1;
 		arma::mat results;
 		std::vector<int> atom_sets;
 		std::vector<int> orb_sets;
@@ -601,7 +601,7 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 		else if(atoms_sep_type == 2) for(int i=0 ; i<ions ; i++) atom_sets.push_back(1);
 
 		if(orbitals_sep_type == 0) orb_sets.push_back(l_tot);
-		else if (orbitals_sep_type == 1) for(int i=0 ; i<m ; i++) orb_sets.push_back(i*2+1);
+		else if (orbitals_sep_type == 1) for(int i=0 ; i<=m ; i++) orb_sets.push_back(i*2+1);
 		else if(orbitals_sep_type == 2) for(int i=0 ; i<l_tot ; i++) orb_sets.push_back(1);
 
 		int at_col = atom_sets.size(), orb_col= orb_sets.size();
@@ -917,7 +917,7 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 	std::vector<int> atom_sets;
 	std::vector<int> orb_sets;
 	int ions = dos_data.size(), NDOS = dos_data[0].n_rows, atom_types= atoms_per_type.size();
-	int l_tot = dos_data[0].n_cols -1 , m = (l_tot -1) / 2;
+	int l_tot = dos_data[0].n_cols -1 , m = sqrt(l_tot) -1;
 	std::vector<std::string> atom_names;
 	std::vector<std::string> orb_names;
 	bool poscar_names;
@@ -971,8 +971,8 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 	}
 	else if (orbitals_sep_type == 1) 
 	{
-		for(int i=0 ; i<m ; i++) orb_sets.push_back(i*2+1);
-		for(int i=0 ; i<m ; i++) orb_names.push_back(std::string(1, orb.at(i)) + "-orbitals");
+		for(int i=0 ; i<=m ; i++) orb_sets.push_back(i*2+1);
+		for(int i=0 ; i<=m ; i++) orb_names.push_back(std::string(1, orb.at(i)) + "-orbitals");
 
 	}
 	else if(orbitals_sep_type == 2) 

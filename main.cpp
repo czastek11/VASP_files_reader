@@ -490,7 +490,7 @@ int main()
 		cerr << "Error at::" << ex.what() << endl;
 	}
 	//*/
-	///*
+	/*
 	string id1 = "MoSe2", id2 = "WS2", layer = "mono", so1 = "no_so", so2 = "so";
 	vector<string> id_list = { id1, id2 };
 	vector<string> so_list = { so1, so2 };
@@ -539,12 +539,19 @@ int main()
 			}
 		}
 		//*/
-		/*
+		///*
 		job_name = "debug";
 		VASP_data data = VASP_data();
-		data.read_POSCAR("workspace/POSCAR");
-		VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
-		data2.write_POSCAR("test");
+		data.read_DOS("workspace/DOSCAR",24,false,2);
+
+		arma::mat result = data.sum_DOS_types(2,0);
+
+		data.write_DOS_sum_types("test",result,2,0,true); //POSCAR is needed to write it properly
+		//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended
+
+		//data.read_POSCAR("workspace/POSCAR");
+		//VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
+		//data2.write_POSCAR("test");
 		//*/
 	}
 	catch (const std::exception& ex) {
