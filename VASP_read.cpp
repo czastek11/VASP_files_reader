@@ -447,6 +447,7 @@ std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_ty
 
 		return potential_z;
 	}
+	else return {};
 }
 
 std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_type)
@@ -456,6 +457,7 @@ std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_ty
 	{
 		std::cerr << "Error: For manual period type, you must provide a period value." << std::endl;
 		throw std::runtime_error("Error: Missing period value for manual period type");
+		return {};
 	}
 }
 
@@ -766,7 +768,9 @@ arma::rowvec VASP_data::find_kpoint_energy(arma::rowvec kpt, bool weight, int& i
 				return BS.row(i);
 			}
 		}
+		return arma::rowvec();
 	}
+	else return arma::rowvec();
 }
 
 double VASP_data::find_band_extremum(int band_index, bool weight, int& kpt_index, bool maxormin)
@@ -797,6 +801,7 @@ double VASP_data::find_band_extremum(int band_index, bool weight, int& kpt_index
 		}
 		return extremum_energy;
 	}
+	return -1e14;
 }
 
 int VASP_data::find_valence_band()

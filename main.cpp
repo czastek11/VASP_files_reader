@@ -429,7 +429,7 @@ int main()
 		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
 	}
 	//*/
-	///*
+	/*
     string body1 = "LOCPOT_", body2 = "EIGENVAL_";
 	vector<string> metals = { "Mo","W" };
 	vector<string> chalcogenides = { "S2", "Se2" };
@@ -490,22 +490,21 @@ int main()
 		cerr << "Error at::" << ex.what() << endl;
 	}
 	//*/
-	/*
+	///*
 	string id1 = "MoSe2", id2 = "WS2", layer = "mono", so1 = "no_so", so2 = "so";
 	vector<string> id_list = { id1, id2 };
 	vector<string> so_list = { so1, so2 };
 	vector<string> layer_list = { layer, ""};
-	body = "EIGENVAL";
+	string body = "EIGENVAL";
 	VASP_data data = VASP_data();
 
-	//for (int i = 0; i < id_list.size(); i++)
-	//{
-	int i = 0;
+	for (int i = 0; i < id_list.size(); i++)
+	{
 		for(int j = 0; j < so_list.size(); j++)
 		{
 			//for(int k = 0; k < layer_list.size(); k++)
 			//{
-			int k = 1;
+			int k = 0;
 				if(layer_list.at(k) == "") job_name = body + "_" + id_list.at(i) + "_" + so_list.at(j);
 				else job_name = body + "_" + layer_list.at(k) + "_" + id_list.at(i) + "_" + so_list.at(j);
 				cout<< "Processing " << job_name << endl;
@@ -513,7 +512,7 @@ int main()
 	            data.write_BS(job_name, true, true);
 			//}
 		}
-	//}
+	}
 
 	//*/
 		/*
