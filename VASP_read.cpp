@@ -70,7 +70,7 @@ VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool r
 {
 	if (read_CHGCAR) this->read_CHGCAR(file_path + "CHGCAR");
 	if (read_LOCPOT) this->read_LOCPOT(file_path + "LOCPOT");
-	if (read_DOS) this->read_DOS(file_path + "DOSCAR", ions, false, 2); // currently only support non-spin-orbit DOSCAR with s,p,d,f orbitals separated. Will add more options in the future if needed.
+	if (read_DOS) this->read_DOS(file_path + "DOSCAR", false); // currently only support non-spin-orbit DOSCAR with s,p,d,f orbitals separated. Will add more options in the future if needed.
 	if (read_EIGENVAL) this->read_EIGENVAL(file_path + "EIGENVAL");
 }
 
@@ -524,7 +524,7 @@ void VASP_data::write_potential(std::string filename)
 	}
 }
 
-void VASP_data::read_DOS(std::string filename, int ions, bool spin_orbit, int m)
+void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 {
 	if (!spin_orbit)
 	{
@@ -538,10 +538,14 @@ void VASP_data::read_DOS(std::string filename, int ions, bool spin_orbit, int m)
 		else
 		{
 			std::string line;
-			int l_tot = (m+1)*(m+1);
+			int l_tot = 0;
 			int NDOS;
 			double pom;
-			for (int i = 0; i < 5; i++)// skip first 5 lines
+			int ions;
+			getline(file, line);
+			std::stringstream ss4(line);
+			ss4 >> ions >> ions; //to get number of ions, which is the second number in the first line of DOSCAR, first number includes empty spheres
+			for (int i = 0; i < 4; i++)// skip next 4 lines
 			{
 				getline(file, line);
 			}
@@ -562,9 +566,24 @@ void VASP_data::read_DOS(std::string filename, int ions, bool spin_orbit, int m)
 			// read DOS data
 			for (int ion = 0; ion < ions; ion++)
 			{
-				ion_dos = arma::mat(NDOS, l_tot+1, arma::fill::zeros); // energy + l_tot orbitals 1s,3p,5d,7f,...
+				
 				getline(file, line); // skip header line for each ion
-				for (int i = 0; i < NDOS; i++)
+				getline(file, line); //first line
+				std::stringstream ss2(line);
+				if (ion == 0) //check max l value from first line once
+				{
+					
+					while (ss2 >> pom) l_tot++;
+					l_tot--; // first column is energy, so total number of orbitals is total columns - 1
+					ion_dos = arma::mat(NDOS, l_tot + 1, arma::fill::zeros); // energy + l_tot orbitals 1s,3p,5d,7f,...
+					ss2.clear();
+					ss2.seekg(0); // reset stringstream to read the line again for the first ion after determining l_tot
+				}
+				for (int j = 0; j < l_tot + 1; j++)
+				{
+					ss2 >> ion_dos(0, j);
+				}
+				for (int i = 1; i < NDOS; i++)
 				{
 					
 					getline(file, line);
@@ -597,7 +616,18 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 		std::vector<int> orb_sets;
 
 		if(atoms_sep_type == 0) atom_sets.push_back(ions);
-		else if (atoms_sep_type == 1) atom_sets = atoms_per_type;
+		else if (atoms_sep_type == 1) 
+		{
+			if (checkgeo())
+			{
+				atom_sets = atoms_per_type;
+			}
+			else
+			{
+				std::cerr << "Error: Cannot separate atoms by type because geometric data not loaded. Please load POSCAR or CHGCAR data before using this option." << std::endl;
+				throw std::runtime_error("Error: Geometric data not loaded for atom separation by type");
+			}
+		}
 		else if(atoms_sep_type == 2) for(int i=0 ; i<ions ; i++) atom_sets.push_back(1);
 
 		if(orbitals_sep_type == 0) orb_sets.push_back(l_tot);
@@ -619,7 +649,7 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 					for(int orb = 0 ; orb < orb_sets.at(orb_set); orb++)
 					{
 						col = orb_col * ion_set + orb_set;
-						results.col(col) += dos_data.at(ion_index).col(1 + orb_index);
+						results.col(1  + col) += dos_data.at(ion_index).col(1 + orb_index);
 						//for(int en =0 ; en<NDOS; en++)
 						//{
 						//	results(en, 1 + col) += dos_data.at(ion_index)(en,1 + orb_index);
@@ -630,12 +660,6 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 				ion_index ++;
 			}
 		}
-
-
-
-
-
-
 		//for (int type_id = 0; type_id < num_types; type_id++)
 		//{
 		//	int set_size = sets[type_id];
@@ -908,25 +932,26 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 	std::vector<char> orb = {'s', 'p' , 'd' , 'f' , 'g'};
 	std::vector<std::string> orb_spec = {
 		"s", 
-		"px","py","pz", 
-		"dx2_xy2", "dx2_xy2", "dx2_xy2", "dx2_xy2", "dx2_xy2",
-		"fxxx","fxxx","fxxx","fxxx","fxxx","fxxx","fxxx",
-		"gxxx","gxxx","gxxx","gxxx","gxxx","gxxx","gxxx","gxxx","gxxx"
-	}; //TO DO : check how those are called and sorted on VASP wiki
+		"py","pz","px", 
+		"dxy", "dyz", "dz2_r2", "dx2_xy2", "dx2_xy2",
+		"fy(3x2-y2)","fxyz","fyz2","fz3","fxz2","z(x2-y2)","fx(x2-3y2)",
+		"gy2(5x2-y2)","gxxxx","gxxxx","gxxxx","gz4","gx4-y4","gxxxx","gxxxx","gxxxx"
+	}; //g is only for very heavy elements, and the specific order of g orbitals can vary, so we just use generic names here. The order of orbitals in DOSCAR is determined by VASP and is usually s, p, d, f, g in order of increasing l, with m values ordered as described in VASP manual. We assume this order when assigning names to orbitals.
+	// g names are not verified
 
 	std::vector<int> atom_sets;
 	std::vector<int> orb_sets;
 	int ions = dos_data.size(), NDOS = dos_data[0].n_rows, atom_types= atoms_per_type.size();
 	int l_tot = dos_data[0].n_cols -1 , m = sqrt(l_tot) -1;
-	std::vector<std::string> atom_names;
+	std::vector<std::string> ions_names;
 	std::vector<std::string> orb_names;
-	bool poscar_names;
+	bool poscar_names = true;
 	if(atom_names.size() == 0) // if atom names are not provided in POSCAR, we will just use generic names like Atom1, Atom2, etc.
 	{
 		poscar_names = false;
-		for(int i=0 ; i<atom_types; i++)
+		for(int i=0 ; i<ions; i++)
 		{
-			atom_names.push_back("Atom" + std::to_string(i+1));
+			ions_names.push_back("Atom" + std::to_string(i+1));
 		}
 	}
 	else
@@ -942,12 +967,20 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 	if(atoms_sep_type == 0) 
 	{
 		atom_sets.push_back(ions);
-		atom_names.push_back("Total");
+		ions_names.push_back("Total");
 	}
 	else if (atoms_sep_type == 1) 
 	{
-		atom_sets = atoms_per_type;
-		if(poscar_names) atom_names = this->atom_names; // use atom names from POSCAR if available, otherwise use generic names
+		if (checkgeo())
+		{
+			atom_sets = atoms_per_type;
+			ions_names = atom_names; // use atom names from POSCAR if available, otherwise use generic names
+		}
+		else
+		{
+			std::cerr << "Error: Cannot separate atoms by type because geometric data not loaded. Please load POSCAR or CHGCAR data before using this option." << std::endl;
+			throw std::runtime_error("Error: Geometric data not loaded for atom separation by type");
+		}
 	}
 	else if(atoms_sep_type == 2) 
 	{
@@ -958,7 +991,7 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 			{
 				for(int j=0 ; j<atoms_per_type[i]; j++)
 				{
-					atom_names.push_back(this->atom_names[i] + "_" + std::to_string(j+1));
+					ions_names.push_back(atom_names[i] + "_" + std::to_string(j+1));
 				}
 			}
 		} 
@@ -995,16 +1028,17 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 		file << "# Energy (eV)  ";
 		for (int type_id = 0; type_id < type_num; type_id++)
 		{
-			name = atom_names.at(type_id / orb_col) + "_" + orb_names.at(type_id % orb_col);
+			name = ions_names.at(type_id / orb_col) + "_" + orb_names.at(type_id % orb_col);
 			file << name << "  ";
 		}
 		file << "\n";
 	}
+	file << std::fixed << std::setprecision(8);
 	for (int i = 0; i < NDOS; i++)
 		{
-			for (int type_id = 0; type_id < type_num; type_id++)
+			for (int type_id = 0; type_id < type_num+1; type_id++)
 			{
-				file << dos_summed(i, type_id) << " "; 	
+				file << std::setw(10)<< dos_summed(i, type_id) << " ";
 			}
 			file << "\n";
 		}

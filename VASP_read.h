@@ -31,7 +31,7 @@ public:
 	void write_potential_z(std::string filename, std::vector<double> potential_z);
 	arma::vec calc_dipole_moment(arma::vec center, std::vector<int> start, std::vector<int> end);
 	void write_potential(std::string filename);
-	void read_DOS(std::string filename, int ions, bool spin_orbit, int m);
+	void read_DOS(std::string filename, bool spin_orbit);
 	arma::mat sum_DOS_types(int atoms_sep_type,int orbitals_sep_type);
 	void read_EIGENVAL(std::string filename);
 	void write_BS(std::string filename, bool verbose_kpts, bool only_path);

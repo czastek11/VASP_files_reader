@@ -11,229 +11,58 @@ using namespace std;
 
 int main()
 {
-	//string path = "C:\\nauka\\pwr\\DFT\\TDMS\\sprezynki_cd\\charge densities\\";
-	//string body = "CHGCAR_";
-	string job_name = "potential and ionisation energies";
-	try
+	map<int, string> jobs;
+	jobs[1] = "Generate supercells and corresponding POSCAR files";
+	jobs[2] = "Charge density analysis and its derviatives (potential, dipole moment, etc.)";
+	jobs[3] = "Potential and ionisation energy";
+	jobs[4] = "Band structure";
+	jobs[5] = "Density of states";
+	jobs[6] = "Custom / debugging";
+	string job_name;
+	cout << "Choose job type:\n";
+	for (const auto& job : jobs)
 	{
-	/*
-		VASP_data data_og, data_mod;
-		for (const auto& metal : metals)
+		cout << job.first << ": " << job.second << endl;
+	}
+	int job_type;
+	cin >> job_type;
+	if( jobs.find(job_type) != jobs.end())
+	{
+		job_name = jobs[job_type];
+		cout << "You chose: " << job_name << endl;
+		try
 		{
-			for (const auto& chalcogenide : chalcogenides)
+			switch (job_type)
 			{
-				data_og.read_POSCAR("workspace\\" + body + metal + chalcogenide);
-				cout << "Processed POSCAR for " << metal + chalcogenide << endl;
-				for (int i =0 ; i<layers.size(); i++)
-				{
-					data_mod = data_og.supercell_grid(1, 1, layer_values.at(i) / 2, {0,0,0,0,1,1});
-					id = metal + chalcogenide +"_"+ layers.at(i);
-					data_mod.write_POSCAR(id);
-				}
-			}
-		}
-	//*/
-		/*
-	for (const auto& lay : layer)
-	{
-		try {
-			string id = "MoS2_" + lay;
-			readout data = read_CHGCAR(path, body, id);
-			cout << "Total electrons for " << id << ": " << count_total_electrons(data) << endl;
-			cout << "Volume for " << id << ": " << arma::det(data.cell_matrix) << endl;
-			cleanup_memory(data);
-		}
-		catch (...) {
-			cerr << "Error processing file for " << lay << endl;
-		}
-	}
-	*/
-		/*
-	try
-	{
-		readout data1 = read_CHGCAR(path, body, "MoS2_bulk");
-		readout data2 = read_CHGCAR("", body, "MoS2_bulk_new");
-		write_charge_density_integrated_xyz("MoS2_bulk_old", data1);
-		write_charge_density_integrated_xyz("MoS2_bulk_new", data2);
-		cout << "Total electrons for MoS2_bulk old: " << count_total_electrons_flout(data1) << endl;
-		cout << "Total electrons for MoS2_bulk new: " << count_total_electrons_flout(data2) << endl;
-	}
-	catch (const std::exception& ex) {
-		cerr << "Error at " << "MoS2_bulk:" <<ex.what()<< endl;
-	}
-	//*/
-		/*try
-	{
-		readout data = read_CHGCAR(path, body, "WSe2_6layer");
-		arma::vec Mo = { 1.0/3.0,2.0/3.0,0.312506 };
-		arma::vec S1 = { 2.0 / 3.0,1.0 / 3.0,0.280910 };
-		arma::vec S2 = { 2.0 / 3.0,1.0 / 3.0,0.344103 };
-		Mo = data.cell_matrix.t() * Mo;
-		S1 = data.cell_matrix.t() * S1;
-		S2 = data.cell_matrix.t() * S2;
-		vector<int> start = { 0,0,0 };
-		vector<int> end = data.NGiF;
-		start.at(2) = data.NGiF[2] / 4;
-		end.at(2) = data.NGiF[2] * 3 / 8;
-		arma::vec dip_mom_ion, dip_mom_elec, dip_mom_total;
-		dip_mom_ion = (S1 - Mo) * 6 + (S2 - Mo) * 6;
-		dip_mom_elec = calc_dipole_mom(data, Mo, start, end);
-		dip_mom_total = dip_mom_ion + dip_mom_elec;
-		cout << "Calculating dipole moment around Mo:\n";
-		cout << "Ionic dipole moment:\n";
-		dip_mom_ion.print();
-		cout << "Electronic dipole moment:\n";
-		dip_mom_elec.print();
-		cout << "Total dipole moment:\n";
-		dip_mom_total.print();
-	}
-	catch (const std::exception& ex) {
-		cerr << "Error at dipole moment calculation: " << ex.what() << endl;
-	}
-	//*/
-		/*
-	try
-	{
-		vector<string> dip_type = { "ion","elec","total" };
-		int columns = metals.size() * chalcogenides.size();
-		int rows = 0;
-		for (const int& num : layer_values) rows += num;
-		rows *= 3; // three types of dipole moments: ionic, electronic, total
-		arma::vec** dipole_moments = new arma::vec * [rows];
-		for (int i = 0; i < rows; i++)
-		{
-			dipole_moments[i] = new arma::vec[columns];
-		}
-
-		bool real_calculation = true;
-		if (real_calculation)
-		{
-			// real calculation commented out for faster testing
-			int row_id, col_id = 0;
-			for (const auto& chalcogenide : chalcogenides)
+				case 1:
 			{
+				string id;
+				string body = "POSCAR_";
+				vector<string> metals = { "Mo","W" };
+				vector<string> chalcogenides = { "S2", "Se2" };
+				vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
+				vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
+				vector<int> layer_values = { 2,4,6,8 }; //2,
+				VASP_data data_og, data_mod;
 				for (const auto& metal : metals)
 				{
-					row_id = 0;
-					for (const auto& lay : layer)
+					for (const auto& chalcogenide : chalcogenides)
 					{
-						string id = metal + chalcogenide + lay;
-						try {
-
-							readout data = read_CHGCAR(path, body, id);
-							arma::vec Mo, S1, S2, ion_dipol, el_dipol, dipol;
-							vector<int> start = { 0,0,0 };
-							vector<int> end = data.NGiF;
-							arma::mat base = data.cell_matrix.t();
-							double height = (base * data.types_atom_positions[0].col(1) - base * data.types_atom_positions[0].col(0))[2];
-							int height_in_mesh = static_cast<int>(floor(height / base(2, 2) * data.NGiF[2] + 0.5));
-							for (int i = 0; i < data.atoms_per_type[0]; i++)
-							{
-								Mo = base * data.types_atom_positions[0].col(i);
-								S1 = base * data.types_atom_positions[1].col(2 * i);
-								S2 = base * data.types_atom_positions[1].col(2 * i + 1);
-								int middle = get_mesh_indices(data.cell_matrix, data.NGiF, Mo)[2];
-								start.at(2) = middle - height_in_mesh / 2;
-								end.at(2) = middle + height_in_mesh / 2;
-
-								ion_dipol = (S1 - Mo) * 6 + (S2 - Mo) * 6;
-								el_dipol = calc_dipole_mom(data, Mo, start, end);
-								dipol = ion_dipol + el_dipol;
-
-								dipole_moments[row_id][col_id] = ion_dipol;
-								dipole_moments[row_id + 1][col_id] = el_dipol;
-								dipole_moments[row_id + 2][col_id] = dipol;
-								row_id += 3;
-								cout << "Calculated dipole moments for " << id << ", layer " << i + 1 << endl;
-							}
-							cleanup_memory(data);
-						}
-						catch (const std::exception& ex) {
-							cerr << "Error at " << id << ex.what() << endl;
+						data_og.read_POSCAR("workspace\\" + body + metal + chalcogenide);
+						cout << "Processed POSCAR for " << metal + chalcogenide << endl;
+						for (int i = 0; i < layers.size(); i++)
+						{
+							data_mod = data_og.supercell_grid(1, 1, layer_values.at(i) / 2, { 0,0,0,0,1,1 });
+							id = metal + chalcogenide + "_" + layers.at(i);
+							data_mod.write_POSCAR(id);
 						}
 					}
-					col_id++;
 				}
+				break;
 			}
-			cout << "\n\n";
-		}
-		else
-		{
-			// Mock data for testing
-			for (int i = 0; i < columns; i++)
+				case 2:
 			{
-				for (int j = 0; j < rows; j++)
-				{
-					dipole_moments[j][i] = arma::vec(3, arma::fill::randu);
-				}
-			}
-		}
-
-		// Writing dipole moments to file
-		fstream file;
-		arma::vec dip;
-		file.open("dipole_moments.txt", ios::out);
-		bool writing_header = false;
-		if (writing_header)
-		{
-			file << "\t\tcompund\tWS2\t\t\tMoS2\t\t\tWSe2\t\t\tMoSe2\t\t\n";
-			file << "layers\tlayer\ttype/direction\tx\ty\tz\tx\ty\tz\tx\ty\tz\tx\ty\tz\t\n";
-		}
-		int count = 0;
-		for (int pom = 0; pom < layer_values.size(); pom++)
-		{
-			int j = layer_values[pom];
-			for (int k = 0; k < j; k++)
-			{
-
-				for (int l = 0; l < 3; l++)
-				{
-					if (writing_header)
-					{
-						if (k == 0 && l == 0)
-						{
-
-							file << layer.at(pom) << "\t" << k + 1;
-						}
-						else if (l == 0)
-						{
-							file << "\t" << k + 1;
-						}
-						else
-						{
-							file << "\t";
-						}
-						file << "\t" << dip_type.at(l) << "\t";
-					}
-					for (int i = 0; i < columns; i++)
-					{
-						dip = dipole_moments[count][i];
-						file << dip(0) << "\t" << dip(1) << "\t" << dip(2) << "\t";
-						//cout << "Written dipole moments for " << layer.at(pom) << " layer " << k + 1 << ", type " << dip_type.at(l) << ", material:" <<
-						//	metals.at(i % 2) + chalcogenides.at(i / 2 % 2) << endl;
-					}
-					file << endl;
-					count++;
-
-
-				}
-
-
-			}
-
-		}
-		file.close();
-
-		for (int i = 0; i < rows; i++) {
-			delete[] dipole_moments[i];
-		}
-		delete[] dipole_moments;
-
-	}
-	catch (const std::exception& ex) {
-		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
-	}
-	//*/
+				//*/
 		/*
 	try
 	{
@@ -428,9 +257,13 @@ int main()
 	catch (const std::exception& ex) {
 		cerr << "Error at " << "MoS2_bulk:" << ex.what() << endl;
 	}
-	//*/
-	/*
-    string body1 = "LOCPOT_", body2 = "EIGENVAL_";
+	//*/	
+				break;
+			}			
+				case 3:
+			{
+				/*
+	string body1 = "LOCPOT_", body2 = "EIGENVAL_";
 	vector<string> metals = { "Mo","W" };
 	vector<string> chalcogenides = { "S2", "Se2" };
 	vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
@@ -472,25 +305,67 @@ int main()
 		}
 		file.close();
 	}
-	
-	
-	//*/
-		/*
-	try
-	{
-		vector<string> type_names = { "Se","S","Mo" };
-		vector<vector<vector<double>>> dos_data = load_DOS("DOSCAR", 24, "LORBIT=11,no_SO");
-		vector<int> sets = { 8,8,8 };
-		vector<vector<vector<double>>> dos_summed = sum_DOS_types(dos_data, sets);
-		write_DOS_sum_types("MoSeS2_0500", dos_summed, type_names);
 
-	}
-	catch (const std::exception& ex)
-	{
-		cerr << "Error at::" << ex.what() << endl;
-	}
+
 	//*/
-	/*
+	//*/
+
+/*
+job_name = "MoS2_vacum_pot_layers";
+VASP_data data = VASP_data();
+arma::mat cell_matrix;
+int pom;
+for(const auto& layer: layers)
+{
+	data.read_LOCPOT("workspace\\MoS2_POT\\" + body  + layer);
+	cell_matrix = data.get_cell_matrix().t();
+	if(layer == "bulk")
+	{
+		data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "primitive");
+	}
+	else if(layer == "2layer")
+	{
+		pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
+		data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "manual", pom);
+	}
+	else
+	{
+		data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "layered");
+	}
+}
+//*/
+/*
+string body1 = "LOCPOT_", body2 = "EIGENVAL_";
+string id1 = "MoS2_2_no_so", id2 = "MoS2_2_so";
+vector<double> en, pot;
+data.read_LOCPOT("workspace\\" + body1 + id1);
+data.read_EIGENVAL("workspace\\" + body2 + id1);
+arma::mat cell_matrix = data.get_cell_matrix().t();
+pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
+vector<double> pot_z = data.sum_potential_averaged_xy_z( "manual", pom);
+res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
+en.push_back(res);
+pot.push_back(pot_z.at(0));
+data.write_potential_z(id1, pot_z);
+
+data.read_LOCPOT("workspace\\" + body1 + id2);
+data.read_EIGENVAL("workspace\\" + body2 + id2);
+pot_z = data.sum_potential_averaged_xy_z("manual", pom);
+res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
+en.push_back(res);
+pot.push_back(pot_z.at(0));
+data.write_potential_z(id2, pot_z);
+
+cout << "Processed " << id1 << ": Valence band maximum energy = " << en.at(0) << " eV, Vacuum level = " << pot.at(0) << " eV";
+cout << " ionisation energy = " << pot.at(0) - en.at(0) << " eV" << endl;
+cout << "Processed " << id2 << ": Valence band maximum energy = " << en.at(1) << " eV, Vacuum level = " << pot.at(1) << " eV";
+cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
+*/
+				break;
+			}
+				case 4:
+			{
+				/*
 	string id1 = "MoSe2", id2 = "WS2", layer = "mono", so1 = "no_so", so2 = "so";
 	vector<string> id_list = { id1, id2 };
 	vector<string> so_list = { so1, so2 };
@@ -509,53 +384,74 @@ int main()
 				else job_name = body + "_" + layer_list.at(k) + "_" + id_list.at(i) + "_" + so_list.at(j);
 				cout<< "Processing " << job_name << endl;
 				data.read_EIGENVAL("workspace/"+job_name);
-	            data.write_BS(job_name, true, true);
+				data.write_BS(job_name, true, true);
 			//}
 		}
 	}
 
 	//*/
-		/*
-		job_name = "MoS2_vacum_pot_layers";
-		VASP_data data = VASP_data();
-		arma::mat cell_matrix;
-		int pom;
-		for(const auto& layer: layers)
-		{
-			data.read_LOCPOT("workspace\\MoS2_POT\\" + body  + layer);
-			cell_matrix = data.get_cell_matrix().t();
-			if(layer == "bulk")
-			{
-				data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "primitive");
+				break;
 			}
-			else if(layer == "2layer")
+				case 5:
 			{
-				pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
-				data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "manual", pom);
+				VASP_data data = VASP_data();
+				int pom, dummy;
+				double res;
+				data.read_POSCAR("workspace/POSCAR");
+				data.read_DOS("workspace/DOSCAR", false);
+
+				for (int i = 0; i < 3; i++)
+				{
+					for (int j = 0; j < 3; j++)
+					{
+						arma::mat result = data.sum_DOS_types(i, j);
+
+						data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
+					}
+				}
+				break;
 			}
-			else
+				case 6:
 			{
-				data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "layered");
+				///*
+				job_name = "debug";
+				VASP_data data = VASP_data();
+				int pom, dummy;
+				double res;
+				data.read_POSCAR("workspace/POSCAR");
+				data.read_DOS("workspace/DOSCAR", false);
+
+				for (int i = 0; i < 3; i++)
+				{
+					for (int j = 0; j < 3; j++)
+					{
+						arma::mat result = data.sum_DOS_types(i, j);
+
+						data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
+					}
+				}
+				//POSCAR is needed to write it properly
+				int stop = 0;
+				//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended
+
+				//data.read_POSCAR("workspace/POSCAR");
+				//VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
+				//data2.write_POSCAR("test");
+
+
+				//*/
+				break;
+			}
 			}
 		}
-		//*/
-		///*
-		job_name = "debug";
-		VASP_data data = VASP_data();
-		data.read_DOS("workspace/DOSCAR",24,false,2);
-
-		arma::mat result = data.sum_DOS_types(2,0);
-
-		data.write_DOS_sum_types("test",result,2,0,true); //POSCAR is needed to write it properly
-		//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended
-
-		//data.read_POSCAR("workspace/POSCAR");
-		//VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
-		//data2.write_POSCAR("test");
-		//*/
+		catch (const std::exception& ex) {
+			cerr << "Error at " << job_name << ": " << ex.what() << endl;
+		}
 	}
-	catch (const std::exception& ex) {
-		cerr << "Error at " << job_name<< " " << ex.what() << endl;
+	else
+	{
+		cerr << "Invalid job type. Exiting." << endl;
+		return 1;
 	}
 	return 0;
 }
