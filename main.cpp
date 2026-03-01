@@ -35,31 +35,46 @@ int main()
 			switch (job_type)
 			{
 				case 1:
-			{
-				string id;
-				string body = "POSCAR_";
-				vector<string> metals = { "Mo","W" };
-				vector<string> chalcogenides = { "S2", "Se2" };
-				vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
-				vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
-				vector<int> layer_values = { 2,4,6,8 }; //2,
-				VASP_data data_og, data_mod;
-				for (const auto& metal : metals)
 				{
-					for (const auto& chalcogenide : chalcogenides)
+					/* //supercels for TMDS all from 2 to 8
+					string id;
+					string body = "POSCAR_";
+					vector<string> metals = { "Mo","W" };
+					vector<string> chalcogenides = { "S2", "Se2" };
+					vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
+					vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
+					vector<int> layer_values = { 2,4,6,8 }; //2,
+					VASP_data data_og, data_mod;
+					for (const auto& metal : metals)
 					{
-						data_og.read_POSCAR("workspace\\" + body + metal + chalcogenide);
-						cout << "Processed POSCAR for " << metal + chalcogenide << endl;
-						for (int i = 0; i < layers.size(); i++)
+						for (const auto& chalcogenide : chalcogenides)
 						{
-							data_mod = data_og.supercell_grid(1, 1, layer_values.at(i) / 2, { 0,0,0,0,1,1 });
-							id = metal + chalcogenide + "_" + layers.at(i);
-							data_mod.write_POSCAR(id);
+							data_og.read_POSCAR("workspace\\" + body + metal + chalcogenide);
+							cout << "Processed POSCAR for " << metal + chalcogenide << endl;
+							for (int i = 0; i < layers.size(); i++)
+							{
+								data_mod = data_og.supercell_grid(1, 1, layer_values.at(i) / 2, { 0,0,0,0,1,1 });
+								id = metal + chalcogenide + "_" + layers.at(i);
+								data_mod.write_POSCAR(id);
+							}
 						}
+					}*/
+					//presentation
+					string id;
+					string body = "POSCAR";
+					vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
+					vector<int> layer_values = { 2,4,6,8 }; //2,
+					VASP_data data_og, data_mod;
+					data_og.read_POSCAR("workspace/" + body + "_MoS2");
+					for (int i = 0; i < layers.size(); i++)
+					{
+						data_mod = data_og.supercell_grid(1, 1, layer_values.at(i) / 2, { 0,0,0,0,1,1 });
+						id = body + "_MoS2_" + layers.at(i);
+						data_mod.write_POSCAR(id);
+						cout << "Generated supercell POSCAR for " << id << endl;
 					}
+					break;
 				}
-				break;
-			}
 				case 2:
 			{
 				//*/
@@ -261,8 +276,8 @@ int main()
 				break;
 			}			
 				case 3:
-			{
-				/*
+				{
+					/*
 	string body1 = "LOCPOT_", body2 = "EIGENVAL_";
 	vector<string> metals = { "Mo","W" };
 	vector<string> chalcogenides = { "S2", "Se2" };
@@ -308,9 +323,8 @@ int main()
 
 
 	//*/
-	//*/
 
-/*
+					/*
 job_name = "MoS2_vacum_pot_layers";
 VASP_data data = VASP_data();
 arma::mat cell_matrix;
@@ -334,7 +348,8 @@ for(const auto& layer: layers)
 	}
 }
 //*/
-/*
+
+					/*
 string body1 = "LOCPOT_", body2 = "EIGENVAL_";
 string id1 = "MoS2_2_no_so", id2 = "MoS2_2_so";
 vector<double> en, pot;
@@ -361,87 +376,108 @@ cout << " ionisation energy = " << pot.at(0) - en.at(0) << " eV" << endl;
 cout << "Processed " << id2 << ": Valence band maximum energy = " << en.at(1) << " eV, Vacuum level = " << pot.at(1) << " eV";
 cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
 */
-				break;
-			}
+
+					//presentation
+					string body1 = "LOCPOT_", body2 = "EIGENVAL_";
+					string id = "MoS2_8layer";
+					int pom;
+					VASP_data data = VASP_data();
+					data.read_LOCPOT("workspace/" + body1 + id);
+					data.read_EIGENVAL("workspace/" + body2 + id);
+					vector<double> potential_z = data.sum_potential_averaged_xy_z("layered");
+					double valence_band_max = data.find_band_extremum(data.find_valence_band(), true, pom, true);
+					double vacuum_level = potential_z.at(0);
+					double ionisation_energy = vacuum_level - valence_band_max;
+					data.write_potential_z("potential_z_" + id, potential_z);
+					cout << "Processed " << id << ": Valence band maximum energy = " << valence_band_max << " eV, Vacuum level = " << vacuum_level << " eV";
+					break;
+				}
 				case 4:
-			{
-				/*
-	string id1 = "MoSe2", id2 = "WS2", layer = "mono", so1 = "no_so", so2 = "so";
-	vector<string> id_list = { id1, id2 };
-	vector<string> so_list = { so1, so2 };
-	vector<string> layer_list = { layer, ""};
-	string body = "EIGENVAL";
-	VASP_data data = VASP_data();
-
-	for (int i = 0; i < id_list.size(); i++)
-	{
-		for(int j = 0; j < so_list.size(); j++)
-		{
-			//for(int k = 0; k < layer_list.size(); k++)
-			//{
-			int k = 0;
-				if(layer_list.at(k) == "") job_name = body + "_" + id_list.at(i) + "_" + so_list.at(j);
-				else job_name = body + "_" + layer_list.at(k) + "_" + id_list.at(i) + "_" + so_list.at(j);
-				cout<< "Processing " << job_name << endl;
-				data.read_EIGENVAL("workspace/"+job_name);
-				data.write_BS(job_name, true, true);
-			//}
-		}
-	}
-
-	//*/
-				break;
-			}
-				case 5:
-			{
-				VASP_data data = VASP_data();
-				int pom, dummy;
-				double res;
-				data.read_POSCAR("workspace/POSCAR");
-				data.read_DOS("workspace/DOSCAR", false);
-
-				for (int i = 0; i < 3; i++)
 				{
-					for (int j = 0; j < 3; j++)
-					{
-						arma::mat result = data.sum_DOS_types(i, j);
+					/* // band structure for TMDS with and without spin orbit coupling bulk and monolayer
+				string id1 = "MoSe2", id2 = "WS2", layer = "mono", so1 = "no_so", so2 = "so";
+				vector<string> id_list = { id1, id2 };
+				vector<string> so_list = { so1, so2 };
+				vector<string> layer_list = { layer, ""};
+				string body = "EIGENVAL";
+				VASP_data data = VASP_data();
 
-						data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
+				for (int i = 0; i < id_list.size(); i++)
+				{
+					for(int j = 0; j < so_list.size(); j++)
+					{
+						//for(int k = 0; k < layer_list.size(); k++)
+						//{
+						int k = 0;
+							if(layer_list.at(k) == "") job_name = body + "_" + id_list.at(i) + "_" + so_list.at(j);
+							else job_name = body + "_" + layer_list.at(k) + "_" + id_list.at(i) + "_" + so_list.at(j);
+							cout<< "Processing " << job_name << endl;
+							data.read_EIGENVAL("workspace/"+job_name);
+							data.write_BS(job_name, true, true);
+						//}
 					}
 				}
-				break;
-			}
-				case 6:
-			{
-				///*
-				job_name = "debug";
-				VASP_data data = VASP_data();
-				int pom, dummy;
-				double res;
-				data.read_POSCAR("workspace/POSCAR");
-				data.read_DOS("workspace/DOSCAR", false);
-
-				for (int i = 0; i < 3; i++)
-				{
-					for (int j = 0; j < 3; j++)
-					{
-						arma::mat result = data.sum_DOS_types(i, j);
-
-						data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
-					}
-				}
-				//POSCAR is needed to write it properly
-				int stop = 0;
-				//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended
-
-				//data.read_POSCAR("workspace/POSCAR");
-				//VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
-				//data2.write_POSCAR("test");
-
-
 				//*/
-				break;
-			}
+
+					//presentation
+					string body = "EIGENVAL_";
+					string id = "MoS2";
+					VASP_data data = VASP_data();
+					data.read_EIGENVAL("workspace/" + body + id);
+					data.write_BS(id, true, true);
+					break;
+				}
+				case 5:
+				{
+					//test / presentation
+					VASP_data data = VASP_data();
+					int pom, dummy;
+					double res;
+					data.read_POSCAR("workspace/POSCAR_MoSSe2");
+					data.read_DOS("workspace/DOSCAR", false);
+
+					for (int i = 0; i < 3; i++)
+					{
+						for (int j = 0; j < 3; j++)
+						{
+							arma::mat result = data.sum_DOS_types(i, j);
+
+							data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
+						}
+					}
+					break;
+				}
+				case 6:
+				{
+					///*
+					job_name = "debug";
+					VASP_data data = VASP_data();
+					int pom, dummy;
+					double res;
+					data.read_POSCAR("workspace/POSCAR");
+					data.read_DOS("workspace/DOSCAR", false);
+
+					for (int i = 0; i < 3; i++)
+					{
+						for (int j = 0; j < 3; j++)
+						{
+							arma::mat result = data.sum_DOS_types(i, j);
+
+							data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
+						}
+					}
+					//POSCAR is needed to write it properly
+					int stop = 0;
+					//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended
+
+					//data.read_POSCAR("workspace/POSCAR");
+					//VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
+					//data2.write_POSCAR("test");
+
+
+					//*/
+					break;
+				}
 			}
 		}
 		catch (const std::exception& ex) {
