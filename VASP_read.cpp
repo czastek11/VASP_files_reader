@@ -3,15 +3,15 @@
 std::vector<double> moving_average(std::vector<double> data, int window_size)
 {
 	std::vector<double> averaged(data.size(), 0.0);
-	int half_window = window_size / 2;
-	for (int i = 0; i < data.size(); i++)
+	int half_window = window_size / 2; //half it as it is from both sides, this way the lenght of the window is not effectively doubled
+	for (int i = 0; i < data.size(); i++) //for each point
 	{
 		double sum = 0.0;
 		int count = 0;
-		for (int j = -half_window; j <= half_window; j++)
+		for (int j = -half_window; j <= half_window; j++) //average all the points in the window
 		{
 			int idx = i + j;
-			if (idx >= 0 && idx < data.size())
+			if (idx >= 0 && idx < data.size()) //safety check to not go out of the array range at the start and end due to window size
 			{
 				sum += data[idx];
 				count++;
@@ -28,31 +28,31 @@ void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec ba
 	std::vector<arma::mat> starting_cart_types = cart_types;
 	std::vector<int> starting_num_types;
 	for(int i =0 ;i<cart_types.size();i++) starting_num_types.push_back(cart_types.at(i).n_cols);
-	for (int i = 0; i < rep; i++)
+	for (int i = 0; i < rep; i++) //repeat all of this for each repetition 
 	{
-		if(add_vacuum_below && i==0)
+		if(add_vacuum_below && i==0) // we need to move up all ions up without adding new, if we want to create vacuum below
 		{
-			for(int t = 0; t < cart_types.size(); t++)
+			for(int t = 0; t < cart_types.size(); t++) //separate the atom types to not mix them and keep correct order in supercell
 			{
 				
 				for(int pos = 0 ; pos < starting_num_types.at(t); pos++)
 				{
-					starting_cart_types[t].col(pos) += base_vec;
+					starting_cart_types[t].col(pos) += base_vec; //move up all ions in base_vec direction
 				}
 				
 			}
-			cart_types = starting_cart_types;
+			cart_types = starting_cart_types; //repleace base positon instead of adding
 		}
-		else if(i>0)
-		{
+		else if(i>0) //case for multiplying cell in give direction. First repetition is avoided because it's the base cell.
+		{	//In other words don't do anything if repetition is set to 1
 			for(int t = 0; t < cart_types.size(); t++)
 			{
 				cart_new = starting_cart_types[t];
 				for(int pos = 0 ; pos < starting_num_types.at(t); pos++)
 				{
-					cart_new.col(pos) += base_vec * i;
+					cart_new.col(pos) += base_vec * i; //each repetition is n times futher in base_vec direction
 				}
-				cart_types[t] = arma::join_rows(cart_types[t], cart_new);
+				cart_types[t] = arma::join_rows(cart_types[t], cart_new); // add new potions to results
 			}
 		}
 	}
@@ -61,42 +61,46 @@ void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec ba
 VASP_data::VASP_data() :
  	NGiF(), atoms_per_type(), types_atom_positions(), atom_positions(),
 	charge_density_raw(), charge_density(), potential(), dos_data(), 
-	KPOINTS(), BS(), atom_names(), occupations()
+	KPOINTS(), BS(), atom_names(), occupations() //construct using empty constructor of all members
 {
-	cell_matrix = arma::mat(3, 3, arma::fill::zeros);
+	cell_matrix = arma::mat(3, 3, arma::fill::zeros); //except cell matrix which always is going to be 3x3. So just make 0 3x3 matrix.
 }
 
-VASP_data::VASP_data(std::string file_path, int ions, std::string format, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS, bool read_EIGENVAL) : VASP_data()
+VASP_data::VASP_data(std::string file_path,bool read_POSCAR, bool read_CHGCAR, bool read_LOCPOT, bool read_DOS, bool read_EIGENVAL) : VASP_data()
 {
+	if (read_POSCAR) this->read_POSCAR(file_path + "POSCAR");
 	if (read_CHGCAR) this->read_CHGCAR(file_path + "CHGCAR");
 	if (read_LOCPOT) this->read_LOCPOT(file_path + "LOCPOT");
 	if (read_DOS) this->read_DOS(file_path + "DOSCAR", false); // currently only support non-spin-orbit DOSCAR with s,p,d,f orbitals separated. Will add more options in the future if needed.
 	if (read_EIGENVAL) this->read_EIGENVAL(file_path + "EIGENVAL");
+	//read all selected files when constructing the object with default settings
 }
 
-VASP_data::~VASP_data()
+VASP_data::~VASP_data() //destructor. All attributes are objects of classes with build in destructors, so we don't need to delete anyting here
 {
 	
 }
 
 bool VASP_data::checkgeo()
 {
-	if (NGiF.size() != 3)
+	if (NGiF.size() != 3) // ??? why geo checks NGiF which is mesh for example of CHGCAR and cell matrix ? Should make separate checkmesh
 	{
 		std::cerr << "Error: Either you did not load data first or did something wrong that NGiF does not have 3 elements." << std::endl;
 		throw std::runtime_error("Error: NGiF does not have 3 elements");
 		return false;
+		//return cerr and runtime error messages and give false
 	}
 	else return true;
 }
 
 bool VASP_data::checkcharge()
 {
-	if (charge_density_raw.is_empty())
+	if (charge_density_raw.is_empty()) //by default this attribute is empty so after loading the data it will satisfy this condition
 	{
 		std::cerr << "Error: charge density data not loaded. Please load data before using charge density." << std::endl;
 		throw std::runtime_error("Error: charge density data not loaded");
 		return false;
+		//same as other checkxxx()
 	}
 	else return true;
 }
@@ -111,6 +115,7 @@ bool VASP_data::checkpot()
 	}
 	else return true;
 }
+//same as before
 
 bool VASP_data::checkdos()
 {
@@ -122,6 +127,7 @@ bool VASP_data::checkdos()
 	}
 	else return true;
 }
+//saem as before
 
 bool VASP_data::checkKPOINTS()
 {
@@ -133,6 +139,7 @@ bool VASP_data::checkKPOINTS()
 	}
 	else return true;
 }
+//same as before
 
 bool VASP_data::checkBS()
 {
@@ -144,12 +151,13 @@ bool VASP_data::checkBS()
 	}
 	else return true;
 }
+//same as before
 
 arma::mat VASP_data::sorting_positions(arma::mat positions, std::string method)
 {
-	if (method == "z_rising")
+	if (method == "z_rising")// one method implemented so far - sort by third lattice vector direction
 	{
-		arma::uvec sorted_indices = arma::sort_index(positions.row(2).t(), "ascend");
+		arma::uvec sorted_indices = arma::sort_index(positions.row(2).t(), "ascend"); //arma sorts the rows by the specified column and mode
 		return positions.cols(sorted_indices);
 	}
 	else
@@ -168,18 +176,20 @@ std::vector<int> VASP_data::get_mesh_indices(arma::vec pos)
 		arma::vec a = cell_matrix.row(0).t();
 		arma::vec b = cell_matrix.row(1).t();
 		arma::vec c = cell_matrix.row(2).t();
+		// get the cell lattise base vectors
 		std::vector<int> indices(3);
 		arma::mat transform_matrix = arma::mat(3, 3);
 		transform_matrix.col(0) = a / NGiF.at(0);
 		transform_matrix.col(1) = b / NGiF.at(1);
 		transform_matrix.col(2) = c / NGiF.at(2);
+		// construct the matrix of transformation R = x_1 * a / n1 + x_2 * b / n2 + x_3 * c / n3
 		//transform_matrix.print("Transform matrix:");
-		arma::vec fractional_coords = arma::inv(transform_matrix) * pos;
+		arma::vec fractional_coords = arma::inv(transform_matrix) * pos; //perform the transformation into mesh postions
 		for (int i = 0; i < 3; i++)
 		{
-			indices[i] = static_cast<int>(floor(fractional_coords(i) + 0.5));
-			if (indices[i] < 0) indices[i] = 0;
-			if (indices[i] >= NGiF[i]) indices[i] = NGiF[i] - 1;
+			indices[i] = static_cast<int>(floor(fractional_coords(i) + 0.5)); //round to nearest indice - intiger
+			if (indices[i] < 0) indices[i] = 0; //all negatives results are set as 0
+			if (indices[i] >= NGiF[i]) indices[i] = NGiF[i] - 1; //all indices above the cell are set to highest indice
 		}
 		return indices;
 	}
@@ -200,16 +210,18 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 		std::cerr << "Error opening file: " << filename << std::endl;
 		throw std::runtime_error("Error opening file");
 	}
-	//clear previous data after successfully opening the file, to avoid partial clearing if file opening fails
+	//clear previous data only after successfully opening the file, to avoid partial clearing if file opening fails
 	atoms_per_type.clear();
 	types_atom_positions.clear();
 	atom_positions.clear();
 	NGiF.clear();
+	//clear all the data to be sure, a lot of them are vectors or arma::mat added by joing col/row 
+	//so we need to avoid adding to the old data - a lot of bugs were caused by this in repeated usage of VASP_data object
 	
 	getline(file, line); // Skip the first line (comment)
 	getline(file, line);
 
-	for (int i = 0; i < 9; i++)
+	for (int i = 0; i < 9; i++) //read up t
 	{
 		file >> number_read;
 		cell_matrix(i / 3, i % 3) = number_read;
@@ -227,7 +239,7 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 
 	getline(file, line);
 	std::stringstream ss(line);
-	while (ss >> int_read)
+	while (ss >> int_read) // readout the number of ions for each atom
 	{
 		atoms_per_type.push_back(int_read);
 		num_atom += int_read;
@@ -237,7 +249,7 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 
 	for (int i = 0; i < atoms_per_type.size(); i++)
 	{
-		types_atom_positions.push_back(arma::mat(3, atoms_per_type[i]));
+		types_atom_positions.push_back(arma::mat(3, atoms_per_type[i])); //prepare the matrix to read positions of each type of atoms, we will sort them later by the method we want, but for now we just read them in the order they are in the file
 		for (int j = 0; j < atoms_per_type[i]; j++)
 		{
 			getline(file, line);
@@ -246,10 +258,15 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 			ss2 >> x >> y >> z;
 			arma::vec pos = { x, y, z };
 			types_atom_positions[i].col(j) = pos;
+			// read out the position of each ion
+			// and store them in the matrix of the corresponding atom type, each column is one ion
 		}
-		types_atom_positions[i] = sorting_positions(types_atom_positions[i], "z_rising");
+		types_atom_positions[i] = sorting_positions(types_atom_positions[i], "z_rising"); //sort the atoms of the same type by their z coordinate, this is useful for layered materials like TMDS, but can be changed to other methods in the future if needed
+		// TO DO: add option to choose other mathod after we implement them
 		atom_positions = arma::join_rows(atom_positions, types_atom_positions[i]);
 	}
+	//this part is not present in POSCAR files and should be probably moveto read_CHGCAR and LOCPOT
+	// normally it doesn't raises an error causes reading past the file just returns empty lines?
 	getline(file, line); // Skip the line before charge density data
 	getline(file, line);
 
@@ -264,8 +281,8 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 void VASP_data::read_POSCAR(std::string filename)
 {
 	std::fstream file;
-	read_POSCAR_like(filename,file);
-	if(file.is_open()) file.close();
+	read_POSCAR_like(filename,file); //the POSCAR header is the same as POSCCAR file itself, so just run this function
+	if(file.is_open()) file.close(); // and then close the file after
 	else 
 	{
 		std::cout << "POSCAR not probably not read!\n";
@@ -276,22 +293,23 @@ void VASP_data::read_POSCAR(std::string filename)
 void VASP_data::read_CHGCAR(std::string filename)
 {
 	std::fstream file;
-	read_POSCAR_like(filename, file);
+	read_POSCAR_like(filename, file); //read POSCAR like header
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
 
 	
 	charge_density_raw = arma::cube(NGiF[0], NGiF[1], NGiF[2], arma::fill::zeros);
 	charge_density = arma::cube(NGiF[0], NGiF[1], NGiF[2], arma::fill::zeros);
+	//by defining new cube (3d array) old data is cleared automaticly 
 
-	for (int i = 0; i < total_grid_points; i++)
+	for (int i = 0; i < total_grid_points; i++) //reading out strem of values written by VASP using fortran. x is fastest changing (inside loop)
 	{
-		int ix = i % NGiF[0];
-		int iy = (i / NGiF[0]) % NGiF[1];
-		int iz = i / (NGiF[0] * NGiF[1]);
-		file >> charge_density_raw(ix, iy, iz);
-		//charge_density[ix][iy][iz] = charge_density_raw[ix][iy][iz] / total_grid_points / cell_volume;
-		charge_density(ix, iy, iz) = charge_density_raw(ix, iy, iz) / total_grid_points;
+		int ix = i % NGiF[0]; // index x is least significant digit in NGiF base: i = n2 * n1 * iz + n1 * iy + ix ==> i mod n1 = ix
+		int iy = (i / NGiF[0]) % NGiF[1]; // index y is middle significant digit in NGiF base: i = n2 * n1 * iz + n1 * iy + ix ==> i / n1 mod n2 = iy, ix<n1
+		int iz = i / (NGiF[0] * NGiF[1]); // index z is most significant digit in NGiF base: i = n2 * n1 * iz + n1 * iy + ix ==> i / n2 /n1  = iz, ix<n1 * n2, iy*n1 < n1 * n2
+		file >> charge_density_raw(ix, iy, iz); //write in correct mesh postion read data value
+		//charge_density[ix][iy][iz] = charge_density_raw[ix][iy][iz] / total_grid_points / cell_volume; //wrong normalization
+		charge_density(ix, iy, iz) = charge_density_raw(ix, iy, iz) / total_grid_points; // normalisation. Sum of all those values gives number of electrons
 	}
 	file.close();
 }
@@ -299,19 +317,22 @@ void VASP_data::read_CHGCAR(std::string filename)
 void VASP_data::read_LOCPOT(std::string filename)
 {
 	std::fstream file;
-	read_POSCAR_like(filename, file);
+	read_POSCAR_like(filename, file); //read POSCAR like header
 
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
 	int ix = 0, iy = 0, iz = 0;
 	
 	potential = arma::cube(NGiF[0], NGiF[1], NGiF[2], arma::fill::zeros);
+	//by defining new cube (3d array) old data is cleared automaticly 
+
+
 	for (int i = 0; i < total_grid_points; i++)
 	{
-		ix = i % NGiF[0];
-		iy = (i / NGiF[0]) % NGiF[1];
-		iz = i / (NGiF[0] * NGiF[1]);
-		file >> potential(ix,iy,iz);
+		ix = i % NGiF[0]; // index x is least significant digit in NGiF base: i = n2 * n1 * iz + n1 * iy + ix ==> i mod n1 = ix
+		iy = (i / NGiF[0]) % NGiF[1]; // index y is middle significant digit in NGiF base: i = n2 * n1 * iz + n1 * iy + ix ==> i / n1 mod n2 = iy, ix<n1
+		iz = i / (NGiF[0] * NGiF[1]); // index z is most significant digit in NGiF base: i = n2 * n1 * iz + n1 * iy + ix ==> i / n2 /n1  = iz, ix<n1 * n2, iy*n1 < n1 * n2
+		file >> potential(ix,iy,iz); //write in correct mesh postion read data value
 		//potentai lcan have up to 4 datasets for spin polarized calculations, but we only read the first one here
 		//current example has 4 but magmom is set to 0 for all atoms, so the other 3 datasets are mostly zeros
 	}
@@ -320,27 +341,27 @@ void VASP_data::read_LOCPOT(std::string filename)
 
 void VASP_data::write_POSCAR(std::string filename)
 {
-	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_POSCAR");
+	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_POSCAR"); //used filesystem::path to handle windows/unix path formatting automaticly
 	std::fstream file;
 	file.open(fullPath, std::ios::out);
-	if (!file.is_open())
+	if (!file.is_open()) //error handling
 	{
 		std::cerr << "Error opening file for writing: " << fullPath << std::endl;
 		throw std::runtime_error("Error opening file for writing");
 	}
-	for(int i=0 ; i< atoms_per_type.size(); i++)
+	for(int i=0 ; i< atoms_per_type.size(); i++) //read out atoms names and their quantity into header
 	{
-		file << atom_names[i] << atoms_per_type[i] << " ";
+		file << atom_names[i] << atoms_per_type[i] << " "; // M2 S4 ...
 	}
-	file<<std::fixed << std::setprecision(16);
+	file<<std::fixed << std::setprecision(16); //write all entries in VASP precisions
 	file<< "\n";
-	file << "   "<<1.0<<"\n";
-	for (int i = 0; i < 3; i++)
+	file << "   "<<1.0<<"\n"; //scaling factor. To this day I've always got 1.0 and never put any other myself.
+	for (int i = 0; i < 3; i++) // write out cell matrix in three lines with columns separated by two spaces
 	{
 		file<<" ";
 		for (int j = 0; j < 3; j++)
 		{
-			if(cell_matrix(i,j)>=0) file<<" ";
+			if(cell_matrix(i,j)>=0) file<<" "; // leave space for minus so that positive and negative entries share the same length
 			file << "   " << cell_matrix(i, j);
 		}
 		file << "\n";
@@ -361,11 +382,11 @@ void VASP_data::write_POSCAR(std::string filename)
 	file<<"Direct\n";
 	for (int i = 0; i < types_atom_positions.size(); i++)
 	{
-		for (int j = 0; j < types_atom_positions[i].n_cols; j++)
+		for (int j = 0; j < types_atom_positions[i].n_cols; j++) //write out ion postion in each row
 		{
 			for (int k = 0; k < 3; k++)
 			{
-				if(types_atom_positions[i](k,j)>=0) file<<" ";
+				if(types_atom_positions[i](k,j)>=0) file<<" "; // space for negative sign
 				file << " " << std::fixed << std::setprecision(16) << types_atom_positions[i](k, j);
 			}
 			file << "\n";
@@ -378,32 +399,26 @@ double VASP_data::count_total_electrons_double()
 {
 	if (checkcharge())
 	{
-		double total_electrons = 0;
-		for (int i = 0; i < atoms_per_type.size(); i++)
+		// sanity check
+		double nel = 0.0;
+		for (int i = 0; i < NGiF[0]; i++) //just summing all the values in charge density
 		{
-			// sanity check
-			double nel = 0.0;
-			for (int i = 0; i < NGiF[0]; i++)
+			for (int j = 0; j < NGiF[1]; j++)
 			{
-				for (int j = 0; j < NGiF[1]; j++)
+				for (int k = 0; k < NGiF[2]; k++)
 				{
-					for (int k = 0; k < NGiF[2]; k++)
-					{
-						nel += charge_density_raw(i,j,k);
-					}
+					nel += charge_density_raw(i,j,k);
 				}
 			}
-			nel /= (NGiF[0] * NGiF[1] * NGiF[2]);
-			return nel; // rounding to nearest integer
 		}
-		return total_electrons;
+		nel /= (NGiF[0] * NGiF[1] * NGiF[2]); //normalisation
+		return nel; 
 	}
 	else return 0.0;
 }
 
 int VASP_data::count_total_electrons()
 {
-	int total_electrons = 0;
 	return static_cast<int>(count_total_electrons_double() + 0.5); // rounding to nearest integer
 }
 
@@ -414,9 +429,10 @@ std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_ty
 		std::vector<double> potential_z(NGiF[2], 0.0);
 		int total_xy_points = NGiF[0] * NGiF[1];
 		double sum;
-		for (int k = 0; k < NGiF[2]; k++)  // z index
+		// for each point in third direction
+		for (int k = 0; k < NGiF[2]; k++)  // z index 
 		{ 
-			sum = 0.0;
+			sum = 0.0; //sum all over xy plane for given z index
 			for (int i = 0; i < NGiF[0]; i++)// x index
 			{ 
 				for (int j = 0; j < NGiF[1]; j++) // y index
@@ -424,33 +440,34 @@ std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_ty
 					sum += potential(i,j,k);
 				}
 			}
-			potential_z[k] = sum / total_xy_points;
+			potential_z[k] = sum / total_xy_points; // and then average it
 		}
 
-		// average potential in z over moving window. Window size is one periodic layer thickness.
+		// average potential in z over moving window. Window size is to be set
 		int window = 1;
-		if (period_type=="primitive")
+		if (period_type=="primitive") //for normal bulk cell, averaging over whole length
 		{
 			window = NGiF[2];
 		}
-		else if (period_type == "manual")
+		else if (period_type == "manual") // providing windows size in number of mesh points in z direction manually
 		{
 			window = period;
 		}
-		else if (period_type == "layered")
+		else if (period_type == "layered") // for many layers (at least 3). It checks the difference betwen first and third ion of the first type
 		{
 			arma::vec distance = cell_matrix.t() * (atom_positions.col(2) - atom_positions.col(0));
 			window = get_mesh_indices(distance)[2];
 		}
+		//this method is specific for TMDS and should be later generalized for at least other directions and number of layers in bulk
 
-		if (period_type!="none") potential_z = moving_average(potential_z, window);
+		if (period_type!="none") potential_z = moving_average(potential_z, window); //don't perform moving average if period type is "none"
 
 		return potential_z;
 	}
 	else return {};
 }
 
-std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_type)
+std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_type) //overload for when user doesn't provide period value, but sets period type to something other than "manual". If "manual" is set without providing period value, it raises an error
 {
 	if(period_type!="manual") return sum_potential_averaged_xy_z(period_type, 0.0);
 	else
@@ -463,13 +480,16 @@ std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_ty
 
 void VASP_data::write_potential_z(std::string filename, std::vector<double> potential_z)
 {
-	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_z.txt");
+	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_z.txt"); //save in workspace folder with filename + _potential_z.txt
 	std::fstream file;
 	file.open(fullPath, std::ios::out);
 	double z_real;
 	for (int i = 0; i < NGiF[2]; i++)
 	{
-		z_real = i * cell_matrix(2, 2) / NGiF[2];
+		z_real = i * cell_matrix(2, 2) / NGiF[2]; //transform from mesh index to real space coordinate in direction
+		//since for know TMDS have 0 0 1 vector this is just z coordinate,
+		// but later it should be generalised to the legth of the third lattice vector direction
+		// then it would go from 0 to |c| and not necessary from 0 to cell_matrix(2,2) if the third lattice vector is not along z direction
 		file << z_real << " " << potential_z[i] << "\n";
 	}
 	file.close();
@@ -484,14 +504,22 @@ arma::vec VASP_data::calc_dipole_moment(arma::vec center, std::vector<int> start
 		arma::vec a = cell_matrix.row(0).t();
 		arma::vec b = cell_matrix.row(1).t();
 		arma::vec c = cell_matrix.row(2).t();
-		for (int i = start[0]; i < end[0]; i++)
+		//lattice base vectors
+		for (int i = start[0]; i < end[0]; i++) //loop over mesh points in the specified range
 		{
 			for (int j = start[1]; j < end[1]; j++)
 			{
 				for (int k = start[2]; k < end[2]; k++)
 				{
-					pos = i * a / NGiF[0] + j * b / NGiF[1] + k * c / NGiF[2];
-					dipole_mom += -charge_density(i,j,k) * (pos - center);
+					pos = i * a / NGiF[0] + j * b / NGiF[1] + k * c / NGiF[2];  //transform from mesh indices to real space coordinates
+					dipole_mom += -charge_density(i,j,k) * (pos - center); //calculate contribution to dipole moment from this mesh point and add it to the total dipole moment. Charge density is negative for electrons, so we add minus sign to get correct direction of dipole moment vector
+					// the contribution is negetaive since charge density describes electrons, which have negative charge
+					// this contribution will be postive for ions, but those will summed outside, cause it's easy
+					// in future we can add option to include ions contribution to dipole moment as well,
+					// since we just need to sum ion position from POSCAR
+					// but we need to know the amount of valence electrons for each ion type,
+					// this is not obvious how since there are different pseudopotentials with different number of valence electrons for the same element.
+					// either user needs to provide this or OUTCAR/POTCAR can be read?
 				}
 			}
 		}
@@ -504,7 +532,11 @@ void VASP_data::write_potential(std::string filename)
 {
 	if (checkpot())
 	{
-		arma::vec a = cell_matrix.col(0), b = cell_matrix.col(1), c = cell_matrix.col(2), pos;
+		arma::vec pos;
+		arma::vec a = cell_matrix.row(0).t();
+		arma::vec b = cell_matrix.row(1).t();
+		arma::vec c = cell_matrix.row(2).t();
+		//base vectors and position vector to write out potential in real space coordinates
 		//std::string full_filename = "workspace\\" + filename + "_potential.txt";
 		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential.txt");
 		std::fstream file;
@@ -515,8 +547,9 @@ void VASP_data::write_potential(std::string filename)
 			{
 				for (int k = 0; k < NGiF[2]; k++)
 				{
-					pos = i * 1.0 / NGiF[0] * a + j * 1.0 / NGiF[1] * b + k * 1.0 / NGiF[2] * c;
+					pos = i * 1.0 / NGiF[0] * a + j * 1.0 / NGiF[1] * b + k * 1.0 / NGiF[2] * c; //transform to cartesian coordinates
 					file << pos(0) << " " << pos(1) << " " << pos(2) << " " << potential(i,j,k) << "\n";
+					//write out x,y,z coordinates and potential value in each line, separated by space
 				}
 			}
 		}
@@ -526,6 +559,8 @@ void VASP_data::write_potential(std::string filename)
 
 void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 {
+	// only no spin orbit interaction case 
+	// for read it should be ieither bool or maybe can be read from DOSCAR itself
 	if (!spin_orbit)
 	{
 		std::fstream file;
@@ -544,7 +579,7 @@ void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 			int ions;
 			getline(file, line);
 			std::stringstream ss4(line);
-			ss4 >> ions >> ions; //to get number of ions, which is the second number in the first line of DOSCAR, first number includes empty spheres
+			ss4 >> ions >> ions; // to get number of ions, which is the second number in the first line of DOSCAR, first number includes empty spheres
 			for (int i = 0; i < 4; i++)// skip next 4 lines
 			{
 				getline(file, line);
@@ -560,7 +595,9 @@ void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 			// allocate memory for DOS data
 			dos_data.clear();
 			arma::mat ion_dos; 
-			//skip first set with two columns (total DOS)
+			// skip first set with two columns (total DOS)
+			// since total DOS is written sa two columns there is no need to handle this by program,
+			// besides the header it is already sorted and ready for plotting
 			for (int i = 0; i < NDOS; i++) getline(file, line);
 
 			// read DOS data
@@ -568,9 +605,9 @@ void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 			{
 				
 				getline(file, line); // skip header line for each ion
-				getline(file, line); //first line
+				getline(file, line); // first line
 				std::stringstream ss2(line);
-				if (ion == 0) //check max l value from first line once
+				if (ion == 0) // check max l value from first line once, initialise the matrix as well, since all ions have the same output we don't need to clear the matrix
 				{
 					
 					while (ss2 >> pom) l_tot++;
@@ -579,11 +616,11 @@ void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 					ss2.clear();
 					ss2.seekg(0); // reset stringstream to read the line again for the first ion after determining l_tot
 				}
-				for (int j = 0; j < l_tot + 1; j++)
+				for (int j = 0; j < l_tot + 1; j++) //first line
 				{
 					ss2 >> ion_dos(0, j);
 				}
-				for (int i = 1; i < NDOS; i++)
+				for (int i = 1; i < NDOS; i++) //rest
 				{
 					
 					getline(file, line);
@@ -607,18 +644,24 @@ void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 
 arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 {
+	// for spin there will be another option:
+	// -1 no spin, 0 sum the spins, 1 keep the spins separetly
 	if (checkdos())
 	{
 		int ions = dos_data.size(), NDOS = dos_data[0].n_rows, atom_types= atoms_per_type.size();
-		int l_tot = dos_data[0].n_cols -1 , m = sqrt(l_tot)-1;
+		int l_tot = dos_data[0].n_cols -1 , m = sqrt(l_tot)-1; // biggest m number in the set
 		arma::mat results;
 		std::vector<int> atom_sets;
 		std::vector<int> orb_sets;
 
+		// setting up the sets for ions and orbitals
+		// 0 is all in one group
+		// 1 is groups of same atom/same orbital type
+		// 2 is all separate
 		if(atoms_sep_type == 0) atom_sets.push_back(ions);
 		else if (atoms_sep_type == 1) 
 		{
-			if (checkgeo())
+			if (checkgeo()) //becuse we need to know the atom groups for this separation, having POSCAR data is required
 			{
 				atom_sets = atoms_per_type;
 			}
@@ -637,7 +680,7 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 		int at_col = atom_sets.size(), orb_col= orb_sets.size();
 		int tot = at_col * orb_col;
 		results = arma::mat(NDOS, 1 + tot, arma::fill::zeros); // first column for energy, next columns for all sets combinations
-		results.col(0) = dos_data[0].col(0);
+		results.col(0) = dos_data[0].col(0); // fill in energy already
 		int ion_index = 0, orb_index = 0, col = 0;
 		for(int ion_set = 0 ; ion_set < atom_sets.size(); ion_set ++)
 		{
@@ -648,36 +691,16 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 				{
 					for(int orb = 0 ; orb < orb_sets.at(orb_set); orb++)
 					{
-						col = orb_col * ion_set + orb_set;
-						results.col(1  + col) += dos_data.at(ion_index).col(1 + orb_index);
-						//for(int en =0 ; en<NDOS; en++)
-						//{
-						//	results(en, 1 + col) += dos_data.at(ion_index)(en,1 + orb_index);
-						//}
+						col = orb_col * ion_set + orb_set; //there are orb_col orbitals type for each ion
+						// so next ions is numerating not from 0 but from number of ions times orb_col
+						results.col(1  + col) += dos_data.at(ion_index).col(1 + orb_index); // we can add columns
+						// because energy and it's mesh is the same for all
 						orb_index ++;
 					}
 				}
 				ion_index ++;
 			}
 		}
-		//for (int type_id = 0; type_id < num_types; type_id++)
-		//{
-		//	int set_size = sets[type_id];
-//
-		//	for (int i = 0; i < set_size; i++)
-		//	{
-		//		for (int j = 0; j < NDOS; j++)
-		//		{
-		//			results(j, 0) = dos_data.at(ion_index)(j, 0); //energy column, should be the same for all ion; could probably just skip this step after the first ion
-		//			// sum over all orbitals (index 1 to 9)
-		//			for (int k = 1; k < 10; k++)
-		//			{
-		//				results(j, type_id) += dos_data[ion_index](j, k);
-		//			}
-		//		}
-		//		ion_index++;
-		//	}
-		//}
 		return results;
 	}
 	else return {};
@@ -714,9 +737,9 @@ void VASP_data::read_EIGENVAL(std::string filename)
 				getline(file, line);
 				std::stringstream ss2(line);
 
-				ss2 >> occ >> energy >> occ; // first number band number, second number energy, third number occupation. We only care about energy here.
+				ss2 >> occ >> energy >> occ; // first number band number, second number energy, third number occupation.
 				BS(k,b) = energy;
-				occupations(k, b) = occ;
+				occupations(k,b) = occ;
 			}
 		}
 		file.close();
@@ -748,7 +771,8 @@ void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path
 			if (only_path && (KPOINTS(k,3) != 0.0)) continue; // skip k-points that are not on the path (weight not zero)
 			file <<std::setw(max_k_width)<< print_k + 1;
 			if (verbose_kpts) file << " " << std::setw(10) << KPOINTS(k,0) << " " << std::setw(10) << KPOINTS(k,1) << " " << std::setw(10) << KPOINTS(k,2);
-			for (int b = 0; b < NBANDS; b++)
+			//write out kpoints themselves if verbose
+			for (int b = 0; b < NBANDS; b++) // write out energies themselves
 			{
 				file  << " " << std::setw(max_band_width) << BS(k,b);
 			}
@@ -761,7 +785,7 @@ void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path
 
 void VASP_data::write_BS(std::string filename)
 {
-	write_BS(filename, false, false);
+	write_BS(filename, false, false); //default settings n verbose kpoints and write out all kpoints
 }
 
 arma::mat VASP_data::get_cell_matrix()
@@ -785,7 +809,7 @@ arma::rowvec VASP_data::find_kpoint_energy(arma::rowvec kpt, bool weight, int& i
 	{
 		for (int i = 0; i < BS.n_rows; i++)
 		{
-			if (arma::approx_equal(KPOINTS.row(i).subvec(0, 2), kpt, "absdiff", 1e-6))
+			if (arma::approx_equal(KPOINTS.row(i).subvec(0, 2), kpt, "absdiff", 1e-6)) //check if this row is match with provide kpoint to the tolerance
 			{
 				if (!weight && KPOINTS(i, 3) != 0.0) continue; // if weight is not considered, skip k-points that are not on the path (weight not zero)
 				index = i;
@@ -802,10 +826,12 @@ double VASP_data::find_band_extremum(int band_index, bool weight, int& kpt_index
 	if (checkBS() && checkKPOINTS())
 	{
 		double extremum_energy = maxormin ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
-		for (int i = 0; i < BS.n_rows; i++)
+		// we set starting value for comparison as -infity for maximum and plus infinity for mininmum
+		// could also set the first values as starting but copilot already suggested this nice option
+		for (int i = 0; i < BS.n_rows; i++) //go trough all kpoints
 		{
 			if (!weight && KPOINTS(i, 3) != 0.0) continue; // if weight is not considered, skip k-points that are not on the path (weight not zero)
-			if (maxormin)
+			if (maxormin) //strandar comparison logic tree to find max or min value
 			{
 				if (BS(i, band_index) > extremum_energy)
 				{
@@ -862,6 +888,7 @@ VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<
 	arma::vec a = cell_matrix.row(0).t();
 	arma::vec b = cell_matrix.row(1).t();
 	arma::vec c = cell_matrix.row(2).t();
+	//base lattice vectors
 	std::vector<arma::mat> new_types_atom_positions; // start with original positions, then we will add new positions for the supercell
 	std::vector<int> new_atoms_per_type = atoms_per_type;
 	std::vector<arma::mat> cart_types;
@@ -874,13 +901,16 @@ VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<
 	new_cell_matrix.row(1) *= rep_y + add_vacuum[2] + add_vacuum[3]; // additonal lattice vector for vacuum below and above the original cell in y direction
 	new_cell_matrix.row(2) *= rep_z + add_vacuum[4] + add_vacuum[5]; // additonal lattice vector for vacuum below and above the original cell in z direction
 	arma::mat frac = arma::inv(new_cell_matrix);
-	for ( int i=0; i< atoms_per_type.size(); i++)
+	for ( int i=0; i< atoms_per_type.size(); i++) // multiply number of each atom by the volume of grid
 	{
 		new_atoms_per_type[i] *= (rep_x * rep_y * rep_z);
 	}
+
 	if(rep_x >1 || (add_vacuum[0]||add_vacuum[1])) multiply_cell_in_direction(cart_types, a, rep_x, add_vacuum[0], add_vacuum[1]);
 	if(rep_y >1 || (add_vacuum[2]||add_vacuum[3])) multiply_cell_in_direction(cart_types, b, rep_y, add_vacuum[2], add_vacuum[3]);
 	if(rep_z >1 || (add_vacuum[4]||add_vacuum[5])) multiply_cell_in_direction(cart_types, c, rep_z, add_vacuum[4], add_vacuum[5]);
+	// multiply in each direction if there is muliplication or vacuum from either side
+	// it's important that the result of multiplication is fed again for the next direction
 	for (int i = 0; i < cart_types.size(); i++)
 	{
 		new_types_atom_positions.push_back(frac.t() * cart_types[i]); // convert back to fractional coordinates
@@ -897,6 +927,7 @@ VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<
 	supercell.atom_positions = new_atom_positions;
 	supercell.atom_names = atom_names;
 	return supercell;
+	// return the supercell as new VASP_data object with initialised POSCAR informations
 
 }
 
@@ -908,6 +939,7 @@ double VASP_data::calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma:
 	arma::vec r_hat = R / R_len;
 	double potential = (arma::dot(dip_1, dip_2) - 3 * arma::dot(dip_1, r_hat) * arma::dot(dip_2, r_hat)) / (R_len * R_len * R_len);
 	return potential;
+	// formula for dipole potential (d1 . d2 - 3 * d1 . r^ * d2 . r^) / |r|^3
 }
 
 arma::vec VASP_data::calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::vec R) //check the derivation : -grad_r calc_dip_dip_potential
@@ -925,6 +957,7 @@ arma::vec VASP_data::calc_dip_dip_force(arma::vec dip_1, arma::vec dip_2, arma::
 	arma::vec term2 = -3 * (term2_1_grad * term2_2 + term2_1 * term2_2_grad) / (R_len * R_len * R_len) - 3 * term2_1 * term2_2 * grad_r_3;
 	arma::vec force = -(term1 + term2);
 	return force;
+	//this derived -grad of potential from function above
 }
 
 void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed, int atoms_sep_type,int orbitals_sep_type, bool header)
@@ -1021,7 +1054,7 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 	file.precision(12);
 	int type_num = dos_summed.n_cols - 1;
 	int orb_col = orb_sets.size();
-	if (header)
+	if (header) //writng headers with names for each column
 	{
 		std::string name;
 		file << "# DOS summed " << "\n";
@@ -1034,7 +1067,7 @@ void VASP_data::write_DOS_sum_types(std::string id, const arma::mat& dos_summed,
 		file << "\n";
 	}
 	file << std::fixed << std::setprecision(8);
-	for (int i = 0; i < NDOS; i++)
+	for (int i = 0; i < NDOS; i++) //writing out values
 		{
 			for (int type_id = 0; type_id < type_num+1; type_id++)
 			{
