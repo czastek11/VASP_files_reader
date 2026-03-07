@@ -50,6 +50,13 @@ There are two constructors currently:
 
 ---
 
+### `read_bestsqs(std::string filename)`
+
+- **Arguments**: name and path of the file
+- **Description**: Reads all information from best sqs output and then converts into POSCAR data
+
+---
+
 ### `read_CHGCAR(std::string filename)`
 
 - **Arguments**: name and path of the file
@@ -224,13 +231,13 @@ There are two constructors currently:
 
 ---
 
-### `VASP_data supercell_grid(int rep_x, int rep_y, int rep_z, std::vector<bool> add_vacuum)`
+### `VASP_data supercell_grid(int rep_x, int rep_y, int rep_z, std::vector<double> add_vacuum)`
 
 - **Arguments**: 
   - `rep_x`, `rep_y`, `rep_z`: integer multiplication of cell in first, second, and third direction
-  - `add_vacuum`: 6-element array of flags (vector<bool>) whether to add vacuum of the length of the given vector to below and/or above cell in given direction {below_x, above_x, below_y, above_y, below_z, above_z}
+  - `add_vacuum`: 6-element array of mulitplies (vector<double>) whether to add vacuum of mulitple of the length of the given vector to below and/or above cell in given direction {below_x, above_x, below_y, above_y, below_z, above_z}
 - **Output**: new object of VASP_data class with generated supercell geometry stored as new POSCAR
-- **Description**: Generates supercell as a new VASP_data object. `rep_x`, `rep_y`, `rep_z` control how many times in each direction the cell is multiplied. `add_vacuum` is an array of logical values to set if vacuum is to be generated, with two values for each direction (below and above the cell)
+- **Description**: Generates supercell as a new VASP_data object. `rep_x`, `rep_y`, `rep_z` control how many times in each direction the cell is multiplied. `add_vacuum` is array of double values to set how many multiplies of vectors are to be added as vacuum
 
 ---
 

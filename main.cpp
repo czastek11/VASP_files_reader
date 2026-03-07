@@ -60,6 +60,7 @@ int main()
 						}
 					}*/
 					//presentation
+					/*
 					string id;
 					string body = "POSCAR";
 					vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
@@ -73,6 +74,20 @@ int main()
 						data_mod.write_POSCAR(id);
 						cout << "Generated supercell POSCAR for " << id << endl;
 					}
+					//*/
+					VASP_data data_in = VASP_data(), data_out;
+					data_in.read_POSCAR("workspace/POSCAR_MoSSe2_4_250");
+					data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1.0/4.0,1.0 / 4.0 });
+					data_out.write_POSCAR("MoSSe2_25_vac");
+
+					data_in.read_POSCAR("workspace/POSCAR_MoSSe2_4_500");
+					data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1.0 / 4.0,1.0 / 4.0 });
+					data_out.write_POSCAR("MoSSe2_50_vac");
+
+					data_in.read_POSCAR("workspace/POSCAR_MoSSe2_4_750");
+					data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1.0 / 4.0,1.0 / 4.0 });
+					data_out.write_POSCAR("MoSSe2_75_vac");
+
 					break;
 				}
 				case 2:
@@ -452,6 +467,10 @@ cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
 					///*
 					job_name = "debug";
 					VASP_data data = VASP_data();
+					data.read_bestsqs("workspace/bestsqs.out");
+					data.write_POSCAR("bestsqs");
+
+					/*
 					int pom, dummy;
 					double res;
 					data.read_POSCAR("workspace/POSCAR");
@@ -466,6 +485,7 @@ cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
 							data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
 						}
 					}
+					*/
 					//POSCAR is needed to write it properly
 					int stop = 0;
 					//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended

@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <algorithm>
 
 std::vector<double> moving_average(const std::vector<double> data, int window_size);
 
@@ -28,6 +29,8 @@ public:
 	// gives position in mesh grid correspodning to given cartesian psotion or closest fit
 	void read_POSCAR(std::string filename);
 	//reads all informations from POSCAR file
+	void read_bestsqs(std::string filename);
+	//converts best sqs output into POSCAR data
 	void read_CHGCAR(std::string filename);
 	//reads the data from CHGCAR file, automaticlly fills POSCAR file informations
 	void read_LOCPOT(std::string filename);
@@ -85,9 +88,9 @@ public:
 	//or minimum(false)
 	int find_valence_band();
 	//gives the index of highest occupied band
-	VASP_data supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<bool> add_vacuum); 
+	VASP_data supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<double> add_vacuum); 
 	//generate supercell as new VASP_data object. rep_x,rep_y,rep_z controls how many times in given direction the cell is multiplied
-	// vacuum is array of logical values to set if vacum is to be generated
+	// vacuum is array of double values to set how many multiplies of vectors are to be added as vacuum
 	static double calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R);
 	// calculate potential between two dipoles
 	// dip1 and dip2 are two dipoles and R is the vector of their separation R=r_1-r_2

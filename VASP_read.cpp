@@ -22,7 +22,7 @@ std::vector<double> moving_average(std::vector<double> data, int window_size)
 	return averaged;
 }
 
-void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec base_vec, int rep, bool add_vacuum_below, bool add_vacuum_above)
+void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec base_vec, int rep, double add_vacuum_below, double add_vacuum_above)
 {
 	arma::mat cart_new;
 	std::vector<arma::mat> starting_cart_types = cart_types;
@@ -30,14 +30,14 @@ void multiply_cell_in_direction(std::vector<arma::mat>& cart_types, arma::vec ba
 	for(int i =0 ;i<cart_types.size();i++) starting_num_types.push_back(cart_types.at(i).n_cols);
 	for (int i = 0; i < rep; i++) //repeat all of this for each repetition 
 	{
-		if(add_vacuum_below && i==0) // we need to move up all ions up without adding new, if we want to create vacuum below
+		if(add_vacuum_below > 0 && i==0) // we need to move up all ions up without adding new, if we want to create vacuum below
 		{
 			for(int t = 0; t < cart_types.size(); t++) //separate the atom types to not mix them and keep correct order in supercell
 			{
 				
 				for(int pos = 0 ; pos < starting_num_types.at(t); pos++)
 				{
-					starting_cart_types[t].col(pos) += base_vec; //move up all ions in base_vec direction
+					starting_cart_types[t].col(pos) += base_vec * add_vacuum_below; //move up all ions in base_vec direction
 				}
 				
 			}
@@ -214,7 +214,6 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 	atoms_per_type.clear();
 	types_atom_positions.clear();
 	atom_positions.clear();
-	NGiF.clear();
 	//clear all the data to be sure, a lot of them are vectors or arma::mat added by joing col/row 
 	//so we need to avoid adding to the old data - a lot of bugs were caused by this in repeated usage of VASP_data object
 	
@@ -265,17 +264,7 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 		// TO DO: add option to choose other mathod after we implement them
 		atom_positions = arma::join_rows(atom_positions, types_atom_positions[i]);
 	}
-	//this part is not present in POSCAR files and should be probably moveto read_CHGCAR and LOCPOT
-	// normally it doesn't raises an error causes reading past the file just returns empty lines?
-	getline(file, line); // Skip the line before charge density data
-	getline(file, line);
-
-	std::stringstream ss2(line);
-	for (int i = 0; i < 3; i++)
-	{
-		ss2 >> int_read;
-		NGiF.push_back(int_read);
-	}
+	
 }
 
 void VASP_data::read_POSCAR(std::string filename)
@@ -290,10 +279,100 @@ void VASP_data::read_POSCAR(std::string filename)
 	}
 }
 
+void VASP_data::read_bestsqs(std::string filename)
+{
+	std::fstream file;
+	std::string line,word;
+	double number_read;
+	int int_read, num_atom = 0;
+
+	file.open(filename, std::ios::in);
+	if (!file.is_open())
+	{
+		std::cerr << "Error opening file: " << filename << std::endl;
+		throw std::runtime_error("Error opening file");
+	}
+	//clear previous data only after successfully opening the file, to avoid partial clearing if file opening fails
+	atoms_per_type.clear();
+	types_atom_positions.clear();
+	atom_positions.clear();
+	atom_names.clear();
+	//clear all the data to be sure, a lot of them are vectors or arma::mat added by joing col/row 
+	//so we need to avoid adding to the old data - a lot of bugs were caused by this in repeated usage of VASP_data object
+
+	arma::mat old_cell_matrix = arma::mat(3, 3, arma::fill::zeros);
+	arma::mat trans_matrix = arma::mat(3, 3, arma::fill::zeros);
+	
+	for (int i = 0; i < 9; i++) //read up base cell matrix
+	{
+		file >> number_read;
+		old_cell_matrix(i / 3, i % 3) = number_read;
+	}
+	for (int i = 0; i < 9; i++) //read up trans matrix
+	{
+		file >> number_read;
+		trans_matrix(i / 3, i % 3) = number_read;
+	}
+	arma::mat inv = arma::inv(trans_matrix);
+	arma::vec pos = arma::vec(3,arma::fill::zeros);
+	std::map <std::string, int> id_name;
+	std::vector<std::vector<arma::vec>> list;
+	list.clear();
+	int ii = 0, point=0;
+	getline(file, line);
+	while (getline(file, line))
+	{
+		std::stringstream ss(line);
+		ss >> pos(0) >> pos(1) >> pos(2); //read up coordiantes
+		ss >> word; //atom name 
+		if (std::find(atom_names.begin(), atom_names.end(), word) != atom_names.end()) //check if already encountered this name
+		{
+			point = id_name[word];
+			atoms_per_type.at(point)++;
+			list.at(point).push_back(pos);
+		}
+		else //create new set for given name if one does not exist
+		{
+			atom_names.push_back(word);
+			id_name[word] = ii;
+			atoms_per_type.push_back(1);
+			std::vector<arma::vec> dummy;
+			list.push_back(dummy);
+			list.at(ii).push_back(pos);
+			ii++;
+		}
+	}
+	//now we need to insert this data into class members
+	cell_matrix = trans_matrix * old_cell_matrix;
+	for (int i = 0; i < atoms_per_type.size(); i++)
+	{
+		int n = atoms_per_type.at(i);
+		arma::mat loc_positions = arma::mat(3, n, arma::fill::zeros);
+		for (int j = 0; j < n; j++) loc_positions.col(j) = list.at(i).at(j);
+		loc_positions = inv * loc_positions;
+		loc_positions = sorting_positions(loc_positions, "z_rising");
+		types_atom_positions.push_back(loc_positions);
+		atom_positions = arma::join_rows(atom_positions, loc_positions);
+	}
+	file.close();
+}
+
 void VASP_data::read_CHGCAR(std::string filename)
 {
 	std::fstream file;
+	std::string line;
+	int int_read;
 	read_POSCAR_like(filename, file); //read POSCAR like header
+	NGiF.clear();
+	getline(file, line); // Skip the line before charge density data
+	getline(file, line);
+
+	std::stringstream ss2(line);
+	for (int i = 0; i < 3; i++)
+	{
+		ss2 >> int_read;
+		NGiF.push_back(int_read);
+	}
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
 
@@ -314,11 +393,24 @@ void VASP_data::read_CHGCAR(std::string filename)
 	file.close();
 }
 
+
+
 void VASP_data::read_LOCPOT(std::string filename)
 {
 	std::fstream file;
+	std::string line;
+	int int_read;
 	read_POSCAR_like(filename, file); //read POSCAR like header
+	NGiF.clear();
+	getline(file, line); // Skip the line before charge density data
+	getline(file, line);
 
+	std::stringstream ss2(line);
+	for (int i = 0; i < 3; i++)
+	{
+		ss2 >> int_read;
+		NGiF.push_back(int_read);
+	}
 
 	int total_grid_points = NGiF[0] * NGiF[1] * NGiF[2];
 	int ix = 0, iy = 0, iz = 0;
@@ -877,7 +969,7 @@ int VASP_data::find_valence_band()
 	else return -1;
 }
 
-VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<bool> add_vacuum)
+VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<double> add_vacuum)
 {
 	if(rep_x==0 || rep_y==0 || rep_z==0)
 	{
