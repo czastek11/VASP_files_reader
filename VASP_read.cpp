@@ -570,6 +570,122 @@ std::vector<double> VASP_data::sum_potential_averaged_xy_z(std::string period_ty
 	}
 }
 
+
+std::vector<double> VASP_data::average_potential_over(int direction)
+{
+	if (checkpot())
+	{
+		std::vector<int> dirs = { 0,1,2 };
+		int dir = dirs.at(direction - 1);
+		dirs.erase(dirs.begin() + dir);
+		std::vector<double> potential_av(NGiF[dir], 0.0);
+		int total_par_point = NGiF[dirs.at(0)] * NGiF[dirs.at(1)];
+		double sum;
+		// Create an array to map loop indices to potential arguments
+		int indices[3];  // Will hold {x, y, z} indices
+		// for each point in third direction
+		for (int k = 0; k < NGiF[dir]; k++)  // perpendicular index 
+		{
+			sum = 0.0; //sum all over plane for given perpendicular index
+
+			indices[dir] = k;
+			for (int i = 0; i < NGiF[dirs.at(0)]; i++)// first pararell index
+			{
+				indices[dirs.at(0)] = i;
+				for (int j = 0; j < NGiF[dirs.at(1)]; j++) // second pararell index
+				{
+					indices[dirs.at(1)] = j;
+					sum += potential(indices[0], indices[1], indices[2]);
+				}
+			}
+			potential_av[k] = sum / total_par_point; // and then average it
+		}
+		return potential_av;
+	}
+}
+
+std::vector<double> VASP_data::moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type)
+{
+	// average potential in z over moving window. Window size is to be set
+	int window = 1;
+	std::vector<int> dirs = { 0,1,2 };
+	int dir = dirs.at(direction - 1);
+	dirs.erase(dirs.begin() + dir);
+	std::vector<double> pot_mov_av;
+	if (period_type == "primitive") //for normal bulk cell, averaging over whole length
+	{
+		window = NGiF[dir];
+	}
+	else
+	{
+		std::cerr << "Wrong avering type" << std::endl;
+		throw std::runtime_error("No matching type in moving_average_potential_over");
+	}
+	//this method is specific for TMDS and should be later generalized for at least other directions and number of layers in bulk
+	pot_mov_av = moving_average(av_pot, window); //don't perform moving average if period type is "none"
+	return pot_mov_av;
+}
+
+std::vector<double> VASP_data::moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type, int period)
+{
+	// average potential in z over moving window. Window size is to be set
+	int window = 1;
+	std::vector<int> dirs = { 0,1,2 };
+	int dir = dirs.at(direction - 1);
+	dirs.erase(dirs.begin() + dir);
+	std::vector<double> pot_mov_av;
+	if (period_type == "manual") // providing windows size in number of mesh points in z direction manually
+	{
+		window = period;
+	}
+	else
+	{
+		std::cerr << "Wrong avering type" << std::endl;
+		throw std::runtime_error("No matching type in moving_average_potential_over");
+	}
+	pot_mov_av = moving_average(av_pot, window);
+	return pot_mov_av;
+}
+
+std::vector<double> VASP_data::moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type, int ion1 , int ion2)
+{
+	// average potential in z over moving window. Window size is to be set
+	int window = 1;
+	std::vector<int> dirs = { 0,1,2 };
+	int dir = dirs.at(direction - 1);
+	dirs.erase(dirs.begin() + dir);
+	std::vector<double> pot_mov_av;
+	if (period_type == "layered") // for many layers (at least 3). It checks the difference betwen first and third ion of the first type
+	{
+		// Get the real-space vector between atoms
+		arma::vec distance_vec = cell_matrix.t() * (atom_positions.col(ion2) - atom_positions.col(ion1));
+
+		// Get the lattice basis vector for the direction we care about
+		arma::rowvec basis_vec = cell_matrix.row(dir);
+
+		// Project distance onto this basis direction
+		// This gives how many times the basis vector fits into the distance component
+		double projection = arma::dot(distance_vec, basis_vec) / arma::dot(basis_vec, basis_vec);
+
+		// Now convert to mesh indices
+		// Create a vector that only has component in this direction
+		arma::vec dir_only_vec = projection * basis_vec.t();  // or projection * unit_vec.t()
+
+		// Get mesh indices for this direction-only vector
+		window = get_mesh_indices(dir_only_vec)[dir];
+
+		// Make sure window is at least 1
+		window = std::max(1, window);
+	}
+	else
+	{
+		std::cerr << "Wrong avering type" << std::endl;
+		throw std::runtime_error("No matching type in moving_average_potential_over");
+	}
+	pot_mov_av = moving_average(av_pot, window); 
+	return pot_mov_av;
+}
+
 void VASP_data::write_potential_z(std::string filename, std::vector<double> potential_z)
 {
 	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_z.txt"); //save in workspace folder with filename + _potential_z.txt
@@ -583,6 +699,26 @@ void VASP_data::write_potential_z(std::string filename, std::vector<double> pote
 		// but later it should be generalised to the legth of the third lattice vector direction
 		// then it would go from 0 to |c| and not necessary from 0 to cell_matrix(2,2) if the third lattice vector is not along z direction
 		file << z_real << " " << potential_z[i] << "\n";
+	}
+	file.close();
+}
+
+void VASP_data::write_potential_over(std::string filename, std::vector<double> potential_av, int direction)
+{
+	std::vector<int> dirs = { 0,1,2 };
+	int dir = dirs.at(direction - 1);
+	dirs.erase(dirs.begin() + dir);
+	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_" + std::to_string(direction) + ".txt"); //save in workspace folder with filename + _potential_z.txt
+	std::fstream file;
+	file.open(fullPath, std::ios::out);
+	double dir_real;
+	arma::mat base = cell_matrix.t();
+	arma::vec base_vec = base.col(dir);
+	double norm = arma::norm(base_vec);
+	for (int i = 0; i < NGiF[dir]; i++)
+	{
+		dir_real = i * norm / NGiF[dir];
+		file << dir_real << " " << potential_av[i] << "\n";
 	}
 	file.close();
 }

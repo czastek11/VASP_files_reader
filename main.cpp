@@ -465,10 +465,9 @@ cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
 				case 6:
 				{
 					///*
-					job_name = "debug";
 					VASP_data data = VASP_data();
-					data.read_bestsqs("workspace/bestsqs.out");
-					data.write_POSCAR("bestsqs");
+					//data.read_bestsqs("workspace/bestsqs.out");
+					//data.write_POSCAR("bestsqs");
 
 					/*
 					int pom, dummy;
@@ -487,7 +486,6 @@ cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
 					}
 					*/
 					//POSCAR is needed to write it properly
-					int stop = 0;
 					//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended
 
 					//data.read_POSCAR("workspace/POSCAR");

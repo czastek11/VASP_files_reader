@@ -50,6 +50,13 @@ public:
 	// "layered" - finds third coordinate of first and third type of first ion (it was used for layered TMDS, this why it's so specific for now)
 	// and then take distance between them as window
 	// "none" - skip calculating moving average
+	std::vector<double> average_potential_over(int direction);
+
+	std::vector<double> moving_average_potential_over(std::vector<double>, int direction, std::string period_type);
+	std::vector<double> moving_average_potential_over(std::vector<double>, int direction, std::string period_type, int period);
+	std::vector<double> moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type, int ion1, int ion2);
+
+	void write_potential_over(std::string filename, std::vector<double> potential_av, int direction);
 
 	//methods to average potential in xy (first and second lattice vector directions) direction and then do moving average over z direction. The range of moving average is defined
 	// by period type and period (number of points in mesh in third lattice vector direction)
