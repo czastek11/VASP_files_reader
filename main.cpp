@@ -293,106 +293,107 @@ int main()
 				case 3:
 				{
 					/*
-	string body1 = "LOCPOT_", body2 = "EIGENVAL_";
-	vector<string> metals = { "Mo","W" };
-	vector<string> chalcogenides = { "S2", "Se2" };
-	vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
-	vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
-	vector<int> layer_values = { 2,4,6,8 }; //2,
-	string  id,filename1,filename2;
-	VASP_data data = VASP_data();
-	vector<double> potential_z, val, vac;
-	double pom;
-	int zzz;
-	fstream file;
-	for (int i = 0; i < compounds.size(); i++)
-	{
-		val.clear();
-		vac.clear();
-		for (int j = 0; j < layers.size(); j++)
-		{
-			id = compounds.at(i) + "_" + layers.at(j);
-			filename1 = "workspace\\" + body1  + id;
-			filename2 = "workspace\\" + body2  + id;
-			data.read_LOCPOT(filename1);
-			data.read_EIGENVAL(filename2);
-			if(layers.at(j) == "2layer") potential_z = data.sum_potential_averaged_xy_z("primitive");
-			else potential_z = data.sum_potential_averaged_xy_z("layered");
-			pom = data.find_band_extremum(data.find_valence_band(), true, zzz, true);
-			val.push_back(pom);
-			pom = potential_z[0];
-			vac.push_back(pom);
-			data.write_potential_z("potential_z_" + id, potential_z);
-			cout << "Processed " << id << ": Valence band maximum energy = " << val.back() << " eV, Vacuum level = " << vac.back() << " eV" << endl;
-		}
-		filename1 = "workspace\\potential_and_ionisation_energies_" + compounds.at(i) + ".txt";
-		file.open(filename1, ios::out);
-		file << "#Layer\tValence Band Maximum (eV)\tVacuum Level (eV)\tIonisation Energy (eV)\n";
-		for (int j = 0; j < layers.size(); j++)
-		{
-			double ionisation_energy = vac.at(j) - val.at(j);
-			file << layers.at(j) << "\t" << val.at(j) << "\t" << vac.at(j) << "\t" << ionisation_energy << "\n";
-		}
-		file.close();
-	}
+					string body1 = "LOCPOT_", body2 = "EIGENVAL_";
+					vector<string> metals = { "Mo","W" };
+					vector<string> chalcogenides = { "S2", "Se2" };
+					vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
+					vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
+					vector<int> layer_values = { 2,4,6,8 }; //2,
+					string  id,filename1,filename2;
+					VASP_data data = VASP_data();
+					vector<double> potential_z, val, vac;
+					double pom;
+					int zzz;
+					fstream file;
+					for (int i = 0; i < compounds.size(); i++)
+					{
+						val.clear();
+						vac.clear();
+						for (int j = 0; j < layers.size(); j++)
+						{
+							id = compounds.at(i) + "_" + layers.at(j);
+							filename1 = "workspace\\" + body1  + id;
+							filename2 = "workspace\\" + body2  + id;
+							data.read_LOCPOT(filename1);
+							data.read_EIGENVAL(filename2);
+							if(layers.at(j) == "2layer") potential_z = data.sum_potential_averaged_xy_z("primitive");
+							else potential_z = data.sum_potential_averaged_xy_z("layered");
+							pom = data.find_band_extremum(data.find_valence_band(), true, zzz, true);
+							val.push_back(pom);
+							pom = potential_z[0];
+							vac.push_back(pom);
+							data.write_potential_z("potential_z_" + id, potential_z);
+							cout << "Processed " << id << ": Valence band maximum energy = " << val.back() << " eV, Vacuum level = " << vac.back() << " eV" << endl;
+						}
+						filename1 = "workspace\\potential_and_ionisation_energies_" + compounds.at(i) + ".txt";
+						file.open(filename1, ios::out);
+						file << "#Layer\tValence Band Maximum (eV)\tVacuum Level (eV)\tIonisation Energy (eV)\n";
+						for (int j = 0; j < layers.size(); j++)
+						{
+							double ionisation_energy = vac.at(j) - val.at(j);
+							file << layers.at(j) << "\t" << val.at(j) << "\t" << vac.at(j) << "\t" << ionisation_energy << "\n";
+						}
+						file.close();
+					}
 
 
-	//*/
-
-					/*
-job_name = "MoS2_vacum_pot_layers";
-VASP_data data = VASP_data();
-arma::mat cell_matrix;
-int pom;
-for(const auto& layer: layers)
-{
-	data.read_LOCPOT("workspace\\MoS2_POT\\" + body  + layer);
-	cell_matrix = data.get_cell_matrix().t();
-	if(layer == "bulk")
-	{
-		data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "primitive");
-	}
-	else if(layer == "2layer")
-	{
-		pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
-		data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "manual", pom);
-	}
-	else
-	{
-		data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "layered");
-	}
-}
-//*/
+					//*/
 
 					/*
-string body1 = "LOCPOT_", body2 = "EIGENVAL_";
-string id1 = "MoS2_2_no_so", id2 = "MoS2_2_so";
-vector<double> en, pot;
-data.read_LOCPOT("workspace\\" + body1 + id1);
-data.read_EIGENVAL("workspace\\" + body2 + id1);
-arma::mat cell_matrix = data.get_cell_matrix().t();
-pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
-vector<double> pot_z = data.sum_potential_averaged_xy_z( "manual", pom);
-res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
-en.push_back(res);
-pot.push_back(pot_z.at(0));
-data.write_potential_z(id1, pot_z);
+					job_name = "MoS2_vacum_pot_layers";
+					VASP_data data = VASP_data();
+					arma::mat cell_matrix;
+					int pom;
+					for(const auto& layer: layers)
+					{
+						data.read_LOCPOT("workspace\\MoS2_POT\\" + body  + layer);
+						cell_matrix = data.get_cell_matrix().t();
+						if(layer == "bulk")
+						{
+							data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "primitive");
+						}
+						else if(layer == "2layer")
+						{
+							pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
+							data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "manual", pom);
+						}
+						else
+						{
+							data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "layered");
+						}
+					}
+					//*/
 
-data.read_LOCPOT("workspace\\" + body1 + id2);
-data.read_EIGENVAL("workspace\\" + body2 + id2);
-pot_z = data.sum_potential_averaged_xy_z("manual", pom);
-res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
-en.push_back(res);
-pot.push_back(pot_z.at(0));
-data.write_potential_z(id2, pot_z);
-
-cout << "Processed " << id1 << ": Valence band maximum energy = " << en.at(0) << " eV, Vacuum level = " << pot.at(0) << " eV";
-cout << " ionisation energy = " << pot.at(0) - en.at(0) << " eV" << endl;
-cout << "Processed " << id2 << ": Valence band maximum energy = " << en.at(1) << " eV, Vacuum level = " << pot.at(1) << " eV";
-cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
-*/
+					/*
+					string body1 = "LOCPOT_", body2 = "EIGENVAL_";
+					string id1 = "MoS2_2_no_so", id2 = "MoS2_2_so";
+					vector<double> en, pot;
+					data.read_LOCPOT("workspace\\" + body1 + id1);
+					data.read_EIGENVAL("workspace\\" + body2 + id1);
+					arma::mat cell_matrix = data.get_cell_matrix().t();
+					pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
+					vector<double> pot_z = data.sum_potential_averaged_xy_z( "manual", pom);
+					res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
+					en.push_back(res);
+					pot.push_back(pot_z.at(0));
+					data.write_potential_z(id1, pot_z);
+					
+					data.read_LOCPOT("workspace\\" + body1 + id2);
+					data.read_EIGENVAL("workspace\\" + body2 + id2);
+					pot_z = data.sum_potential_averaged_xy_z("manual", pom);
+					res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
+					en.push_back(res);
+					pot.push_back(pot_z.at(0));
+					data.write_potential_z(id2, pot_z);
+					
+					cout << "Processed " << id1 << ": Valence band maximum energy = " << en.at(0) << " eV, Vacuum level = " << pot.at(0) << " eV";
+					cout << " ionisation energy = " << pot.at(0) - en.at(0) << " eV" << endl;
+					cout << "Processed " << id2 << ": Valence band maximum energy = " << en.at(1) << " eV, Vacuum level = " << pot.at(1) << " eV";
+					cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
+					*/
 
 					//presentation
+					/*
 					string body1 = "LOCPOT_", body2 = "EIGENVAL_";
 					string id = "MoS2_8layer";
 					int pom;
@@ -405,6 +406,83 @@ cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
 					double ionisation_energy = vacuum_level - valence_band_max;
 					data.write_potential_z("potential_z_" + id, potential_z);
 					cout << "Processed " << id << ": Valence band maximum energy = " << valence_band_max << " eV, Vacuum level = " << vacuum_level << " eV";
+					*/
+					std::vector<std::string> percentages = { "0250", "0500", "0750" };
+					std::vector<std::string> supercells = { "2x2", "4" };
+					std::map<std::string, std::vector<std::vector<double>>> results;
+					for (const auto& supercell : supercells)
+					{
+						std::string filename_output = "workspace/ionisation_energies_" + supercell + ".txt";
+						std::ofstream outfile(filename_output);
+
+						if (!outfile.is_open()) {
+							std::cerr << "Cannot open output file: " << filename_output << std::endl;
+							continue;
+						}
+						outfile << "# x_percent\tval_G\tvacuum_potential\tionisation_energy\n";
+						std::cout << "\nResults for " << supercell << " supercell:\n";
+
+						std::vector<std::vector<double>> supercell_results;
+
+						for (const auto& perc : percentages)
+						{
+							// Convert percentage to decimal for output
+							double x_percent;
+							if (perc == "0250") x_percent = 0.25;
+							else if (perc == "0500") x_percent = 0.50;
+							else if (perc == "0750") x_percent = 0.75;
+
+							std::cout << "\nProcessing " << perc << " " << supercell << std::endl;
+
+							// Construct filenames
+							std::string eigenval_file = "workspace/EIGENVAL_MoSSe2_" + perc + "_" + supercell;
+							std::string bs_file = "workspace/BS_MoSSe2_" + perc + "_" + supercell;
+							std::string locpot_file = "workspace/LOCPOT_MoSSe2_" + perc + "_" + supercell;
+
+							VASP_data data = VASP_data();
+
+							// Read EIGENVAL
+							data.read_EIGENVAL(eigenval_file);
+							int val = data.find_valence_band();
+							int pom;
+							data.read_BS(bs_file, false, true);
+							double val_G = data.find_band_extremum(val, true, pom, true);
+
+
+							data.read_LOCPOT(locpot_file);
+							std::vector<double> av_pot = data.average_potential_over(3);
+							double ionis_en = *std::max_element(av_pot.begin(), av_pot.end());
+
+							if (supercell == "2x2")
+							{
+								int win = data.get_mesh_indices(data.get_cell_matrix().row(2).t() / 3.0).at(2);
+								av_pot = data.moving_average_potential_over(av_pot, 3, "manual", win);
+							}
+							else if (supercell == "4") av_pot = data.moving_average_potential_over(av_pot, 3, "layered", 16, 18);
+
+							double ionisation_energy = ionis_en - val_G;
+
+							// Output to console
+							std::cout << "  x = " << x_percent
+								<< "  val_G = " << val_G
+								<< "  vacuum pot = " << ionis_en
+								<< "  ionisation energy = " << ionisation_energy << std::endl;
+
+							outfile << x_percent << "\t"
+								<< val_G << "\t"
+								<< ionis_en << "\t"
+								<< ionisation_energy << "\n";
+
+							// Write potential to file
+							data.write_potential_over("MoSSe2_" + perc + "_" + supercell, av_pot, 3);
+
+							// Store for summary
+							supercell_results.push_back({ x_percent, val_G, ionis_en, ionisation_energy });
+						}
+						outfile.close();
+						results[supercell] = supercell_results;
+						std::cout << "\nResults saved to " << filename_output << std::endl;
+					}
 					break;
 				}
 				case 4:
@@ -466,6 +544,23 @@ cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
 				{
 					///*
 					VASP_data data = VASP_data();
+					data.read_EIGENVAL("workspace/EIGENVAL_MoSSe2_0250_2x2");
+					int val = data.find_valence_band(),pom;
+					data.read_BS("workspace/BS_MoSSe2_0250_2x2", false, true);
+					double val_G = data.find_band_extremum(val, true, pom, true);
+					data.read_LOCPOT("workspace/LOCPOT_MoSSe2_0250_2x2");
+					vector<double> av_pot = data.average_potential_over(3);
+					double ionis_en = *max_element(av_pot.begin(), av_pot.end());
+
+
+					int win = data.get_mesh_indices(data.get_cell_matrix().row(2).t()/3.0).at(2);
+
+
+					av_pot = data.moving_average_potential_over(av_pot, 3, "manual", win); //for 2x2
+					av_pot = data.moving_average_potential_over(av_pot, 3, "layered", 16,18);
+					//max(av_pot.at(0), av_pot.at(av_pot.size() - 1));
+					cout << "Valence band max: " << val_G << " vacuum potential: " << ionis_en << " Ionisation energy: " << ionis_en - val_G << "\n";
+					data.write_potential_over("MoSSe2_0250_2x2", av_pot, 3);
 					//data.read_bestsqs("workspace/bestsqs.out");
 					//data.write_POSCAR("bestsqs");
 

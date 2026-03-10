@@ -979,6 +979,69 @@ void VASP_data::read_EIGENVAL(std::string filename)
 	}
 }
 
+void VASP_data::read_BS(std::string filename, bool header, bool verbose_kpts)
+{
+	std::fstream file;
+	file.open(filename, std::ios::in);
+	if (file.is_open())
+	{
+		
+		std::string line;
+		double energy;
+		int occ, kpoints, NBANDS;
+		std::vector<std::vector<double>> read_BS;
+		std::vector<arma::vec> read_kpoints;
+		arma::vec kpoint = arma::vec(3, arma::fill::zeros);
+		if (header)
+		{
+			// skip first 5 lines
+			for (int i = 0; i < 4; i++)
+			{
+				getline(file, line);
+			}
+		}
+		while (getline(file, line))
+		{
+			std::stringstream ss(line);
+			
+			if (verbose_kpts)
+			{
+				ss >> kpoints >> kpoint(0) >> kpoint(1) >> kpoint(2);
+				read_kpoints.push_back(kpoint);
+			}
+			else ss >> kpoints;
+			std::vector<double> dummy;
+			while (ss >> energy)
+			{
+				dummy.push_back(energy);
+			}
+			read_BS.push_back(dummy);
+		}
+		file.close();
+		NBANDS = read_BS.at(0).size();
+		KPOINTS = arma::mat(kpoints, 4, arma::fill::zeros);
+		BS = arma::mat(kpoints, NBANDS,arma::fill::zeros);
+		for (int i = 0; i < kpoints; i++)
+		{
+			if(verbose_kpts)
+			{
+				KPOINTS(i, 0) = read_kpoints.at(i)(0);
+				KPOINTS(i, 1) = read_kpoints.at(i)(1);
+				KPOINTS(i, 2) = read_kpoints.at(i)(2);
+			}
+			for (int j = 0; j < NBANDS; j++)
+			{
+				BS(i, j) = read_BS.at(i).at(j);
+			}
+		}
+	}
+	else
+	{
+		std::cerr << "Error opening file: " << filename << std::endl;
+		throw std::runtime_error("Error opening file");
+	}
+}
+
 void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path)
 {
 	if (checkBS() && checkKPOINTS()) //band structure and k-points must be loaded before writing band structure data
