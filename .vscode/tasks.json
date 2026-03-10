@@ -2,24 +2,43 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build vasp_reader",
+            "label": "build vasp_reader (debug)",
             "type": "shell",
             "command": "g++",
             "args": [
                 "-std=c++17",
                 "-g",
+                "-O0",
+                "-Wall",
                 "${workspaceFolder}/*.cpp",
                 "-o",
                 "vasp_reader",
-                "-O0",
                 "-larmadillo"
             ],
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": true   // ← zmień tutaj na true dla debug
             },
-            "options": {
-                "cwd": "${workspaceFolder}"
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "build vasp_reader (release)",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-std=c++17",
+                "-O3",
+                "-march=native",
+                "-flto",
+                "-DNDEBUG",
+                "${workspaceFolder}/*.cpp",
+                "-o",
+                "vasp_reader",
+                "-larmadillo"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false  // ← false dla release
             },
             "problemMatcher": ["$gcc"]
         }
