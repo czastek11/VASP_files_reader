@@ -75,6 +75,7 @@ public:
 	// 2 - don't sum at all, get seperate contribution for each ion/orbital 
 	void read_EIGENVAL(std::string filename);
 	//read information from EIGENVAL: kpoints, their indexes, their wieght, all the band energies for each and all their occupations
+	void read_BS(std::string filename, bool header, bool verbose_kpts);
 	void write_BS(std::string filename, bool verbose_kpts, bool only_path);
 	//write out band structure in more compact way for graphing, verbose_kpt is to enable writing out kpoints values
 	// in reduced form (not cartesian), only_path skips writing points that have integration weight, so that only band structure path is written
