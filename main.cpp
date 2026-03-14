@@ -36,6 +36,7 @@ int main()
 			{
 				case 1:
 				{
+					VASP_data data_in = VASP_data(), data_out;
 					/* //supercels for TMDS all from 2 to 8
 					string id;
 					string body = "POSCAR_";
@@ -75,7 +76,7 @@ int main()
 						cout << "Generated supercell POSCAR for " << id << endl;
 					}
 					//*/
-					VASP_data data_in = VASP_data(), data_out;
+					/*
 					data_in.read_POSCAR("workspace/POSCAR_MoSSe2_4_250");
 					data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1.0/4.0,1.0 / 4.0 });
 					data_out.write_POSCAR("MoSSe2_25_vac");
@@ -87,7 +88,13 @@ int main()
 					data_in.read_POSCAR("workspace/POSCAR_MoSSe2_4_750");
 					data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1.0 / 4.0,1.0 / 4.0 });
 					data_out.write_POSCAR("MoSSe2_75_vac");
-
+					//*/
+					data_in.read_POSCAR("workspace/POSCAR_MoSe2");
+					data_out = data_in.supercell_grid(2, 2, 1, { 0,0,0,0,1,1 }); 
+					data_out.write_POSCAR("MoSe2");
+					data_in.read_POSCAR("workspace/POSCAR_MoS2");
+					data_out = data_in.supercell_grid(2, 2, 1, { 0,0,0,0,1,1 });
+					data_out.write_POSCAR("MoS2");
 					break;
 				}
 				case 2:
@@ -407,6 +414,55 @@ int main()
 					data.write_potential_z("potential_z_" + id, potential_z);
 					cout << "Processed " << id << ": Valence band maximum energy = " << valence_band_max << " eV, Vacuum level = " << vacuum_level << " eV";
 					*/
+					std::vector<double> av_pot,percentages = { 0.0, 0.25, 0.25,0.25,1.0 };
+					std::vector<std::string> names = { "","_alt1","_alt2","_man",""};
+					std::vector<arma::vec> results;
+					string filename1,filename2,filename3, perc;
+					int val,pom,win;
+					VASP_data data = VASP_data();
+					double val_g, vac, ionis;
+					arma::vec result = arma::vec(3, arma::fill::zeros);
+					for (int i = 0; i < 5; i++)
+					{
+						pom = static_cast<int>(percentages.at(i) * 1000);
+						std::ostringstream ss;
+						ss << std::setfill('0') << std::setw(4) << pom;
+						perc = ss.str();
+
+						//if (percentages.at(i) < 1.0) perc = "0" + perc;
+						filename1 = "workspace/EIGENVAL_MoSSe2_" + perc + "_2x2" + names.at(i);
+						filename2 = "workspace/BS_MoSSe2_" + perc + "_2x2" + names.at(i);
+						filename3 = "workspace/LOCPOT_MoSSe2_" + perc + "_2x2" + names.at(i);
+
+						cout << "Processing: " << perc + names.at(i) << "\n";
+
+						data.read_EIGENVAL(filename1);
+						val = data.find_valence_band();
+
+						data.read_BS(filename2,false, true);
+						val_g = data.find_band_extremum(val, true, pom, true);
+
+						data.read_LOCPOT(filename3);
+						av_pot = data.average_potential_over(3);
+						win = data.get_mesh_indices(data.get_cell_matrix().row(2).t() / 3.0).at(2);
+						av_pot = data.moving_average_potential_over(av_pot, 3, "manual", win);
+						vac = av_pot.front();
+
+						ionis = vac - val_g;
+
+						cout << "Valence max: " << val_g << " vacuum pot.: " << vac << " ionisation potential: " << ionis << "\n";
+						result(0) = val_g; result(1) = vac; result(2) = ionis;
+						results.push_back(result);
+
+						data.write_potential_over("MoSSe2_" + perc + "_2x2" + names.at(i), av_pot, 3);
+					}
+					fstream file;
+					file.open("workspace/ionisation_energy_2x2.txt",ios::out);
+					for (int i = 0; i < 5; i++)
+					{
+						file<< percentages.at(i) << "\t" << results.at(i)(0) << "\t" << results.at(i)(1) << "\t" << results.at(i)(2) << "\n";
+					}
+					/*
 					std::vector<std::string> percentages = { "0250", "0500", "0750" };
 					std::vector<std::string> supercells = { "2x2", "4" };
 					std::map<std::string, std::vector<std::vector<double>>> results;
@@ -451,7 +507,7 @@ int main()
 
 							data.read_LOCPOT(locpot_file);
 							std::vector<double> av_pot = data.average_potential_over(3);
-							double ionis_en = *std::max_element(av_pot.begin(), av_pot.end());
+							//double ionis_en = *std::max_element(av_pot.begin(), av_pot.end());
 
 							if (supercell == "2x2")
 							{
@@ -460,6 +516,7 @@ int main()
 							}
 							else if (supercell == "4") av_pot = data.moving_average_potential_over(av_pot, 3, "layered", 16, 18);
 
+							double ionis_en = av_pot.front();// max(av_pot.front(), av_pot.back());
 							double ionisation_energy = ionis_en - val_G;
 
 							// Output to console
@@ -474,7 +531,7 @@ int main()
 								<< ionisation_energy << "\n";
 
 							// Write potential to file
-							data.write_potential_over("MoSSe2_" + perc + "_" + supercell, av_pot, 3);
+							//if(x_percent == 0.25 && supercell == "2x2") data.write_potential_over("MoSSe2_" + perc + "_" + supercell, av_pot, 3);
 
 							// Store for summary
 							supercell_results.push_back({ x_percent, val_G, ionis_en, ionisation_energy });
@@ -483,6 +540,7 @@ int main()
 						results[supercell] = supercell_results;
 						std::cout << "\nResults saved to " << filename_output << std::endl;
 					}
+					*/
 					break;
 				}
 				case 4:
