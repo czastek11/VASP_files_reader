@@ -89,12 +89,20 @@ int main()
 					data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1.0 / 4.0,1.0 / 4.0 });
 					data_out.write_POSCAR("MoSSe2_75_vac");
 					//*/
-					data_in.read_POSCAR("workspace/POSCAR_MoSe2");
-					data_out = data_in.supercell_grid(2, 2, 1, { 0,0,0,0,1,1 }); 
-					data_out.write_POSCAR("MoSe2");
-					data_in.read_POSCAR("workspace/POSCAR_MoS2");
-					data_out = data_in.supercell_grid(2, 2, 1, { 0,0,0,0,1,1 });
-					data_out.write_POSCAR("MoS2");
+					std::vector<double> av_pot, percentages;
+					for (int i = 0; i < 4; i++) percentages.push_back(i * 0.25 + 0.125);
+					string perc;
+					int pom;
+					for (int i = 0; i < percentages.size(); i++)
+					{
+						pom = static_cast<int>(percentages.at(i) * 1000);
+						std::ostringstream ss;
+						ss << std::setfill('0') << std::setw(3) << pom;
+						perc = ss.str();
+						data_in.read_POSCAR("workspace/CONTCAR_" + perc);
+						data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1,1 });
+						data_out.write_POSCAR("MoSSe2_0" + perc);
+					}
 					break;
 				}
 				case 2:
@@ -414,15 +422,20 @@ int main()
 					data.write_potential_z("potential_z_" + id, potential_z);
 					cout << "Processed " << id << ": Valence band maximum energy = " << valence_band_max << " eV, Vacuum level = " << vacuum_level << " eV";
 					*/
-					std::vector<double> av_pot,percentages = { 0.0, 0.25, 0.25,0.25,1.0 };
-					std::vector<std::string> names = { "","_alt1","_alt2","_man",""};
+					std::vector<double> av_pot, percentages;
+					std::vector<std::string> names;
+					for (int i = 0; i < 4; i++) 
+					{
+						percentages.push_back(i * 0.25 + 0.125);
+						names.push_back("");
+					}
 					std::vector<arma::vec> results;
 					string filename1,filename2,filename3, perc;
 					int val,pom,win;
 					VASP_data data = VASP_data();
 					double val_g, vac, ionis;
 					arma::vec result = arma::vec(3, arma::fill::zeros);
-					for (int i = 0; i < 5; i++)
+					for (int i = 0; i < 4; i++)
 					{
 						pom = static_cast<int>(percentages.at(i) * 1000);
 						std::ostringstream ss;
@@ -430,9 +443,9 @@ int main()
 						perc = ss.str();
 
 						//if (percentages.at(i) < 1.0) perc = "0" + perc;
-						filename1 = "workspace/EIGENVAL_MoSSe2_" + perc + "_2x2" + names.at(i);
-						filename2 = "workspace/BS_MoSSe2_" + perc + "_2x2" + names.at(i);
-						filename3 = "workspace/LOCPOT_MoSSe2_" + perc + "_2x2" + names.at(i);
+						filename1 = "workspace/EIGENVAL_MoSSe2_" + perc  + names.at(i);
+						filename2 = "workspace/energies_MoSSe2_" + perc  + names.at(i);
+						filename3 = "workspace/LOCPOT_MoSSe2_" + perc  + names.at(i);
 
 						cout << "Processing: " << perc + names.at(i) << "\n";
 
@@ -446,7 +459,7 @@ int main()
 						av_pot = data.average_potential_over(3);
 						win = data.get_mesh_indices(data.get_cell_matrix().row(2).t() / 3.0).at(2);
 						av_pot = data.moving_average_potential_over(av_pot, 3, "manual", win);
-						vac = av_pot.front();
+						vac = av_pot.front();//max(av_pot.front(), av_pot.back());
 
 						ionis = vac - val_g;
 
@@ -454,11 +467,11 @@ int main()
 						result(0) = val_g; result(1) = vac; result(2) = ionis;
 						results.push_back(result);
 
-						data.write_potential_over("MoSSe2_" + perc + "_2x2" + names.at(i), av_pot, 3);
+						//data.write_potential_over("MoSSe2_" + perc + "_2x2" + names.at(i), av_pot, 3);
 					}
 					fstream file;
 					file.open("workspace/ionisation_energy_2x2.txt",ios::out);
-					for (int i = 0; i < 5; i++)
+					for (int i = 0; i < 4; i++)
 					{
 						file<< percentages.at(i) << "\t" << results.at(i)(0) << "\t" << results.at(i)(1) << "\t" << results.at(i)(2) << "\n";
 					}
