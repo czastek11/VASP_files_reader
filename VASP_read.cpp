@@ -83,6 +83,18 @@ VASP_data::~VASP_data() //destructor. All attributes are objects of classes with
 
 bool VASP_data::checkgeo()
 {
+	if (cell_matrix.is_empty() || atoms_per_type.size() == 0 || types_atom_positions.size() == 0 || atom_positions.is_empty())
+	{
+		std::cerr << "Error: POSCAR data not loaded. Please load POSCAR data before using geometry data." << std::endl;
+		throw std::runtime_error("Error: POSCAR data not loaded");
+		return false;
+		//return cerr and runtime error messages and give false
+	}
+	else return true;
+}
+
+bool VASP_data::checkmesh()
+{
 	if (NGiF.size() != 3) // ??? why geo checks NGiF which is mesh for example of CHGCAR and cell matrix ? Should make separate checkmesh
 	{
 		std::cerr << "Error: Either you did not load data first or did something wrong that NGiF does not have 3 elements." << std::endl;
@@ -1221,6 +1233,114 @@ VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<
 	// return the supercell as new VASP_data object with initialised POSCAR informations
 
 }
+
+
+void VASP_data::alloy_geometry(VASP_data data2, double percentage, std::vector<std::string> mixed_atom_names1, std::vector<std::string> mixed_atom_names2, std::string filename)
+{
+	if(checkgeo() && data2.checkgeo())
+	{
+		arma::mat new_cell_matrix = cell_matrix * percentage + data2.cell_matrix * (1-percentage);
+		arma::vec new_atom_positions;
+		std::vector<std::vector<std::string>> atom_groups;
+		std::string name,name2;
+		bool present;
+		std::vector<std::string>::iterator position1 , position2 ;
+		int index, id1,id2;
+		for(int i=0; i<atom_names.size(); i++)
+		{
+			std::vector<std::string> group;
+			name = atom_names.at(i);
+			if(std::find(data2.atom_names.begin(), data2.atom_names.end(), atom_names.at(i)) != data2.atom_names.end()) // if this atom type is present in both structures, we can mix them
+			{
+				group.push_back(name);
+			}
+			else 
+			{
+				position1 = std::find(mixed_atom_names1.begin(), mixed_atom_names1.end(), name);
+				position2 = std::find(mixed_atom_names2.begin(), mixed_atom_names2.end(), name);
+				if(position1 != mixed_atom_names1.end())
+				{
+					index = std::distance(mixed_atom_names1.begin(), position1);
+					group.push_back(mixed_atom_names1.at(index));
+					group.push_back(mixed_atom_names2.at(index));
+				}
+				else if(position2 != mixed_atom_names2.end())
+				{
+					index = std::distance(mixed_atom_names2.begin(), position2);
+					group.push_back(mixed_atom_names1.at(index));
+					group.push_back(mixed_atom_names2.at(index));
+				}
+				else
+				{
+					std::cerr << "Error: Atom type " << name << " is not present in both structures and not listed in mixed_atom_names1 or mixed_atom_names2. Cannot determine how to mix this atom type." << std::endl;
+					throw std::runtime_error("Error: Atom type not found for mixing");
+				}
+			}
+			atom_groups.push_back(group);
+			// we create groups of atom types that should be mixed together
+		}
+
+
+
+
+		double a = arma::norm(new_cell_matrix.row(0));
+		double b = arma::norm(new_cell_matrix.row(1));
+		double c = arma::norm(new_cell_matrix.row(2));
+		double alpha = std::acos(arma::dot(new_cell_matrix.row(1), new_cell_matrix.row(2)) / (b * c)) * 180.0 / M_PI;
+		double beta = std::acos(arma::dot(new_cell_matrix.row(0), new_cell_matrix.row(2)) / (a * c)) * 180.0 / M_PI;
+		double gamma = std::acos(arma::dot(new_cell_matrix.row(0), new_cell_matrix.row(1)) / (a * b)) * 180.0 / M_PI;
+		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_lat.in");
+		std::ofstream file;
+		file.open(fullPath, std::ios::out);
+		file <<std::fixed << std::setprecision(16)<< a << " " << b << " " << c << " " <<std::setprecision(2)<< alpha << " " << beta << " " << gamma << "\n";
+		for(int i=0;i<3;i++)
+		{
+			for(int j=0;j<3;j++)
+			{
+				if (i==j) file << 1 << " ";
+				else file << 0 << " ";
+			}
+			file << "\n";
+		}
+		for(int i =0 ; i<atom_groups.size(); i++)
+		{
+			//std::fixed << std::setprecision(16)
+			//find index
+			if(atom_groups.at(i).size() == 1) // if this group has only one atom type, we mix only the positions
+			{
+				name = atom_groups.at(i).at(0);
+				id1 = std::distance(atom_names.begin(), std::find(atom_names.begin(), atom_names.end(), name));
+				id2 = std::distance(data2.atom_names.begin(), std::find(data2.atom_names.begin(), data2.atom_names.end(), name));
+				for(int j=0; j<atoms_per_type.at(id1); j++)
+				{
+					new_atom_positions = cell_matrix.t() *types_atom_positions.at(id1).col(j) *  percentage + data2.cell_matrix.t() * types_atom_positions.at(id2).col(j) * (1-percentage); // mix the positions of the this atom type
+					arma::mat inverted = arma::inv(new_cell_matrix.t());
+					new_atom_positions = inverted * new_atom_positions; // convert back to fractional coordinates
+					file <<std::fixed << std::setprecision(16)<< new_atom_positions[0]<< " " << new_atom_positions[1] << " " << new_atom_positions[2] ;
+					file << " " << name << "="<<std::setprecision(6)<< 1.0000 << "\n"; // write out the mixed number of atoms for this type
+				}
+			}
+			else if (atom_groups.at(i).size() == 2) // if this group has two atom types, we need to mix them
+			{
+				name = atom_groups.at(i).at(0);
+				id1 = std::distance(atom_names.begin(), std::find(atom_names.begin(), atom_names.end(), name));
+				name2 = atom_groups.at(i).at(1);
+				id2 = std::distance(data2.atom_names.begin(), std::find(data2.atom_names.begin(), data2.atom_names.end(), name2));
+				for(int j=0; j<atoms_per_type.at(id1); j++)
+				{
+					new_atom_positions = cell_matrix.t() *types_atom_positions.at(id1).col(j) *  percentage + data2.cell_matrix.t() * types_atom_positions.at(id2).col(j) * (1-percentage); // mix the positions of the this atom type
+					arma::mat inverted = arma::inv(new_cell_matrix.t());
+					new_atom_positions = inverted * new_atom_positions; // convert back to fractional coordinates
+					file <<std::fixed << std::setprecision(16)<< new_atom_positions[0]<< " " << new_atom_positions[1] << " " << new_atom_positions[2];
+					file << " " << name << "="<<std::setprecision(6)<< percentage << " , " << name2 << "=" <<std::setprecision(6)<< (1-percentage) << "\n"; // write out the mixed number of atoms
+				}
+			}
+		}
+	}
+}
+
+
+
 
 double VASP_data::calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R)
 {

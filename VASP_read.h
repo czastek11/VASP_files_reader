@@ -99,6 +99,16 @@ public:
 	VASP_data supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<double> add_vacuum); 
 	//generate supercell as new VASP_data object. rep_x,rep_y,rep_z controls how many times in given direction the cell is multiplied
 	// vacuum is array of double values to set how many multiplies of vectors are to be added as vacuum
+
+    void alloy_geometry(VASP_data data2, double percentage, std::vector<std::string> mixed_atom_names1, std::vector<std::string> mixed_atom_names2, std::string filename);
+	//generate alloy geometry as new VASP_data object. this and data2 are the two parent structures, percentage is the percentage of data2 in the alloy
+	// then write it in mcsqs format
+	// make sure that the order of postions that are to be mixed is the same in both structures, also make sure that all atoms are either in both compounds
+	// or listed in with its to be mixed counterpart as mixed_atom_names1 and mixed_atom_names2
+	// the pair of mixed atoms should in the same positons in the vectors mixed_atom_names1 and mixed_atom_names2,
+	// so that the first element of mixed_atom_names1 is mixed with the first element of mixed_atom_names2 and so on
+
+
 	static double calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R);
 	// calculate potential between two dipoles
 	// dip1 and dip2 are two dipoles and R is the vector of their separation R=r_1-r_2
@@ -122,6 +132,7 @@ private:
 	arma::mat occupations; // occupations for each band and kpoint
 	void read_POSCAR_like(std::string file_name, std::fstream& file); //reading POSCAR like header in POSCAR,CHGCAR,LOCPOT
 	bool checkgeo();
+	bool checkmesh();
 	bool checkcharge();
 	bool checkpot();
 	bool checkdos();

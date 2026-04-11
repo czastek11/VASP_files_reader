@@ -17,7 +17,7 @@
             ],
             "group": {
                 "kind": "build",
-                "isDefault": true   // ← zmień tutaj na true dla debug
+                "isDefault": false   // ← zmień tutaj na true dla debug
             },
             "problemMatcher": ["$gcc"]
         },
@@ -38,7 +38,7 @@
             ],
             "group": {
                 "kind": "build",
-                "isDefault": false  // ← false dla release
+                "isDefault": true  // ← false dla release
             },
             "problemMatcher": ["$gcc"]
         }

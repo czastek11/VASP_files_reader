@@ -613,7 +613,7 @@ int main()
 				}
 				case 6:
 				{
-					///*
+					/*
 					VASP_data data = VASP_data();
 					data.read_EIGENVAL("workspace/EIGENVAL_MoSSe2_0250_2x2");
 					int val = data.find_valence_band(),pom;
@@ -634,7 +634,7 @@ int main()
 					data.write_potential_over("MoSSe2_0250_2x2", av_pot, 3);
 					//data.read_bestsqs("workspace/bestsqs.out");
 					//data.write_POSCAR("bestsqs");
-
+					//*/
 					/*
 					int pom, dummy;
 					double res;
@@ -650,16 +650,40 @@ int main()
 							data.write_DOS_sum_types("test_" + to_string(i) + "_" + to_string(j), result, i, j, true);
 						}
 					}
-					*/
+					//*/
 					//POSCAR is needed to write it properly
 					//Add check to see if POSCAr is read before hand, this makes sense without POSCAR or set of atoms it's impossible to separate the ions how intended
 
 					//data.read_POSCAR("workspace/POSCAR");
 					//VASP_data data2 = data.supercell_grid(3,3,2,{1,1,1,1,1,1});
 					//data2.write_POSCAR("test");
+					VASP_data POSCAR1 = VASP_data();
+					VASP_data POSCAR2 = VASP_data();
+					vector<string> mixinga , mixingb, mixingcombinations, mixing_at1,mixing_at2;
+					string filename1, filename2,filename3;
+					mixinga = { "WS2", "WSe2", "WS2"};
+					mixingb = { "WSe2", "MoSe2", "MoS2" };
+					mixing_at1 = { "S", "W", "W" };
+					mixing_at2 = { "Se", "Mo", "Mo" };
+					mixingcombinations = { "WSSe2", "WMoSe2", "WMoS2" };
+					for(int i = 0; i < mixinga.size(); i++)
+					{
+						filename1 = "workspace/POSCAR_" + mixinga.at(i);
+						filename2 = "workspace/POSCAR_" + mixingb.at(i);
+						POSCAR1.read_POSCAR(filename1);
+						POSCAR2.read_POSCAR(filename2);
+						for(double x =0.25; x < 1.0; x+=0.25)
+						{
+							job_name = "Alloy geometry for " + mixinga.at(i) + " and " + mixingb.at(i) + " with x = " + to_string(x);
+							cout << "Processing: " << job_name << endl;
+							POSCAR1.alloy_geometry(POSCAR2,x,{mixing_at1.at(i)},{mixing_at2.at(i)},to_string(x) + "_" + mixingcombinations.at(i));
+						}
+					}
 
+					//POSCAR1.read_POSCAR("workspace/POSCAR_WS2");
+					//POSCAR2.read_POSCAR("workspace/POSCAR_WSe2");
+					//POSCAR1.alloy_geometry(POSCAR2,0.875,{"S"},{"Se"},"WSSe2");
 
-					//*/
 					break;
 				}
 			}
