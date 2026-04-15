@@ -1,5 +1,6 @@
 #ifndef VASP_READ_H 
 #define VASP_READ_H
+#define _USE_MATH_DEFINES
 
 #include <iostream>
 #include <string>
@@ -10,6 +11,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <algorithm>
+#include <math.h>
 
 std::vector<double> moving_average(const std::vector<double> data, int window_size);
 
