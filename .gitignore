@@ -424,5 +424,10 @@ FodyWeavers.xsd
 # ================================
 # Folder roboczy (ignoruj całą zawartość)
 # ================================
-workspace/**
-!workspace/.gitkeep  # utwórz pusty plik .gitkeep w workspace/
+#workspace/**
+#!workspace/.gitkeep  # utwórz pusty plik .gitkeep w workspace/
+
+input/**
+output/**
+!input/.gitkeep  # utwórz pusty plik .gitkeep w input/
+!output/.gitkeep  # utwórz pusty plik .gitkeep w input/

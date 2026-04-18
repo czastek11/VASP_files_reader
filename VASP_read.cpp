@@ -215,8 +215,8 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 	double number_read;
 	int int_read, num_atom = 0;
 	std::string line, word;
-
-	file.open(filename, std::ios::in);
+	std::filesystem::path fullPath = std::filesystem::path("input") / (filename); //used filesystem::path to handle windows/unix path formatting automaticly
+	file.open(fullPath, std::ios::in);
 	if (!file.is_open())
 	{
 		std::cerr << "Error opening file: " << filename << std::endl;
@@ -282,7 +282,8 @@ void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
 void VASP_data::read_POSCAR(std::string filename)
 {
 	std::fstream file;
-	read_POSCAR_like(filename,file); //the POSCAR header is the same as POSCCAR file itself, so just run this function
+	read_POSCAR_like(filename, file); //the POSCAR header is the same as POSCCAR file itself, so just run this function
+	// the /input/ path is added in read_POSCAR_like function, so we don't need to add it here
 	if(file.is_open()) file.close(); // and then close the file after
 	else 
 	{
@@ -295,10 +296,11 @@ void VASP_data::read_bestsqs(std::string filename)
 {
 	std::fstream file;
 	std::string line,word;
+	std::filesystem::path fullPath = std::filesystem::path("input") / (filename);
 	double number_read;
 	int int_read, num_atom = 0;
 
-	file.open(filename, std::ios::in);
+	file.open(fullPath, std::ios::in);
 	if (!file.is_open())
 	{
 		std::cerr << "Error opening file: " << filename << std::endl;
@@ -445,7 +447,7 @@ void VASP_data::read_LOCPOT(std::string filename)
 
 void VASP_data::write_POSCAR(std::string filename)
 {
-	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_POSCAR"); //used filesystem::path to handle windows/unix path formatting automaticly
+	std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_POSCAR"); //used filesystem::path to handle windows/unix path formatting automaticly
 	std::fstream file;
 	file.open(fullPath, std::ios::out);
 	if (!file.is_open()) //error handling
@@ -700,7 +702,7 @@ std::vector<double> VASP_data::moving_average_potential_over(std::vector<double>
 
 void VASP_data::write_potential_z(std::string filename, std::vector<double> potential_z)
 {
-	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_z.txt"); //save in workspace folder with filename + _potential_z.txt
+	std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_potential_z.txt"); //save in output folder with filename + _potential_z.txt
 	std::fstream file;
 	file.open(fullPath, std::ios::out);
 	double z_real;
@@ -720,7 +722,7 @@ void VASP_data::write_potential_over(std::string filename, std::vector<double> p
 	std::vector<int> dirs = { 0,1,2 };
 	int dir = dirs.at(direction - 1);
 	dirs.erase(dirs.begin() + dir);
-	std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential_" + std::to_string(direction) + ".txt"); //save in workspace folder with filename + _potential_z.txt
+	std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_potential_" + std::to_string(direction) + ".txt"); //save in output folder with filename + _potential_z.txt
 	std::fstream file;
 	file.open(fullPath, std::ios::out);
 	double dir_real;
@@ -778,7 +780,7 @@ void VASP_data::write_potential(std::string filename)
 		arma::vec c = cell_matrix.row(2).t();
 		//base vectors and position vector to write out potential in real space coordinates
 		//std::string full_filename = "workspace\\" + filename + "_potential.txt";
-		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_potential.txt");
+		std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_potential.txt");
 		std::fstream file;
 		file.open(fullPath, std::ios::out);
 		for (int i = 0; i < NGiF[0]; i++)
@@ -801,10 +803,11 @@ void VASP_data::read_DOS(std::string filename, bool spin_orbit)
 {
 	// only no spin orbit interaction case 
 	// for read it should be ieither bool or maybe can be read from DOSCAR itself
+	std::filesystem::path fullPath = std::filesystem::path("input") / (filename);
 	if (!spin_orbit)
 	{
 		std::fstream file;
-		file.open(filename, std::ios::in);
+		file.open(fullPath, std::ios::in);
 		if (!file.is_open())
 		{
 			std::cerr << "Error opening file: " << filename << std::endl;
@@ -949,7 +952,8 @@ arma::mat VASP_data::sum_DOS_types(int atoms_sep_type,int orbitals_sep_type)
 void VASP_data::read_EIGENVAL(std::string filename)
 {
 	std::fstream file;
-	file.open(filename, std::ios::in);
+	std::filesystem::path fullPath = std::filesystem::path("input") / (filename);
+	file.open(fullPath, std::ios::in);
 	if (file.is_open())
 	{
 		// skip first 5 lines
@@ -994,7 +998,8 @@ void VASP_data::read_EIGENVAL(std::string filename)
 void VASP_data::read_BS(std::string filename, bool header, bool verbose_kpts)
 {
 	std::fstream file;
-	file.open(filename, std::ios::in);
+	std::filesystem::path fullPath = std::filesystem::path("input") / (filename);
+	file.open(fullPath, std::ios::in);
 	if (file.is_open())
 	{
 		
@@ -1059,7 +1064,7 @@ void VASP_data::write_BS(std::string filename, bool verbose_kpts, bool only_path
 	if (checkBS() && checkKPOINTS()) //band structure and k-points must be loaded before writing band structure data
 	{
 		//std::string full_filename = "workspace/" + filename + "_BS.txt";
-		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_BS.txt");
+		std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_BS.txt");
 		std::ofstream file;
 
 		file.open(fullPath, std::ios::out);
@@ -1289,7 +1294,7 @@ void VASP_data::alloy_geometry(VASP_data data2, double percentage, std::vector<s
 		double alpha = std::acos(arma::dot(new_cell_matrix.row(1), new_cell_matrix.row(2)) / (b * c)) * 180.0 / M_PI;
 		double beta = std::acos(arma::dot(new_cell_matrix.row(0), new_cell_matrix.row(2)) / (a * c)) * 180.0 / M_PI;
 		double gamma = std::acos(arma::dot(new_cell_matrix.row(0), new_cell_matrix.row(1)) / (a * b)) * 180.0 / M_PI;
-		std::filesystem::path fullPath = std::filesystem::path("workspace") / (filename + "_lat.in");
+		std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_lat.in");
 		std::ofstream file;
 		file.open(fullPath, std::ios::out);
 		file <<std::fixed << std::setprecision(16)<< a << " " << b << " " << c << " " <<std::setprecision(2)<< alpha << " " << beta << " " << gamma << "\n";

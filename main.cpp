@@ -29,7 +29,7 @@ string format_percentage(double value, int digits)
 
 void job1()
 {
-	VASP_data data_in = VASP_data(), data_out;
+	VASP_data data_in = VASP_data(), data_out = VASP_data();
 	/* //supercels for TMDS all from 2 to 8
 	string id;
 	string body = "POSCAR_";
@@ -82,6 +82,7 @@ void job1()
 	data_out = data_in.supercell_grid(1, 1, 1, { 0,0,0,0,1.0 / 4.0,1.0 / 4.0 });
 	data_out.write_POSCAR("MoSSe2_75_vac");
 	//*/
+	/*
 	//CONTCAR_WS_Se2_0_500_man
 	std::vector<double> percentages = { 0.25, 0.50, 0.75 };
 	std::vector<std::string> alloys = { "WS_Se2", "W_MoSe2", "W_MoS2" };
@@ -106,6 +107,17 @@ void job1()
 			}
 		}
 	}
+	*/
+
+	vector<string> compounds = { "MoSe2","MoS2 ","WS2", "WSe2" };
+	for (const auto& compound : compounds)
+	{
+		data_in.read_POSCAR("POSCAR_" + compound);
+		data_out = data_in.supercell_grid(2, 2, 1, { 0,0,0,0,0.0,0.0 });
+		data_out.write_POSCAR(compound + "_2x2");
+	}
+
+	
 
 
 }
@@ -562,9 +574,10 @@ void job3()
 		std::cout << "\nResults saved to " << filename_output << std::endl;
 	}
 	*/
-	std::vector<double> percentages = { 0.25, 0.50, 0.75 }, av_pot;
-	std::vector<std::string> alloys = { "WS_Se2", "W_MoSe2", "W_MoS2" };
-	std::vector<std::string> method = { "rand","man" };
+	std::vector<double> percentages = { 0,1.0 };// { 0.25, 0.50, 0.75 }, ;
+	std::vector<double> av_pot;
+	std::vector<std::string> alloys = { "WS_Se2" };// , "W_MoSe2", "W_MoS2"};
+	std::vector<std::string> method = { "" };// { "rand", "man" };
 	string perc, filename1,filename2,filename3,filename_alloy;
 	VASP_data datain = VASP_data();
 	VASP_data dataout = VASP_data();
@@ -583,9 +596,9 @@ void job3()
 				perc = format_percentage(percentages.at(j), 3);
 
 				{
-					filename1 = "workspace/EIGENVAL_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
-					filename2 = "workspace/energies_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
-					filename3 = "workspace/LOCPOT_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
+					filename1 = "EIGENVAL_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
+					filename2 = "energies_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
+					filename3 = "LOCPOT_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
 					datain.read_EIGENVAL(filename1);
 					val = datain.find_valence_band();
 					datain.read_BS(filename2, false, true);
@@ -609,7 +622,7 @@ void job3()
 				}
 			}
 
-			filename_alloy = "workspace/ionisation_energies_" + alloys.at(i) + "_" + method.at(k);
+			filename_alloy = "output/ionisation_energies_" + alloys.at(i) + "_" + method.at(k);
 			file.open(filename_alloy, ios::out);
 			if (!file.is_open()) {
 				std::cerr << "Cannot open output file: " << filename_alloy << std::endl;
@@ -654,13 +667,79 @@ void job4()
 					}
 				}
 				//*/
+	/*
+	std::vector<double> percentages = { 0.25, 0.50, 0.75 };
+	std::vector<double> av_pot;
+	std::vector<std::string> alloys = { "MoS_Se2","WS_Se2", "W_MoSe2", "W_MoS2"};
+	std::vector<std::string> method = { "man" };// { "rand", "man" };
+	string perc, filename1, filename2, filename_alloy;
+	VASP_data datain = VASP_data();
+	fstream file;
+	int val, pom;
+	arma::mat result;
+	arma::rowvec en_k;
+	for (int k = 0; k < method.size(); k++)
+	{
+		for (int i = 0; i < alloys.size(); i++)
+		{
+			result = arma::mat(6, 3, arma::fill::zeros);
+			for (int j = 0; j < percentages.size(); j++)
+			{
+				perc = format_percentage(percentages.at(j), 3);
+				
+				filename1 = "EIGENVAL_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
+				filename2 = "energies_" + alloys.at(i) + "_" + perc + "_" + method.at(k);
+				datain.read_EIGENVAL(filename1);
+				val = datain.find_valence_band();
+				datain.read_BS(filename2, false, true);
+				result(j*2, 0) = percentages.at(j);
+				result(j*2+1, 0) = percentages.at(j);
+				en_k = datain.find_kpoint_energy({ 0,0,0 }, true, pom);
+				result(j*2, 1) = en_k(val);
+				result(j*2, 2) = en_k(val + 1);
+				en_k = datain.find_kpoint_energy({ 0.333333,0.333333,0 }, true, pom);
+				result(j*2+1, 1) = en_k(val);
+				result(j*2+1, 2) = en_k(val + 1);
+			}
 
-				//presentation
-	string body = "EIGENVAL_";
-	string id = "MoS2";
+			filename_alloy = "output/band" + alloys.at(i) + ".txt";
+			file.open(filename_alloy, ios::out);
+			if (!file.is_open()) {
+				std::cerr << "Cannot open output file: " << filename_alloy << std::endl;
+				continue;
+			}
+			else
+			{
+				file << "# x_percent\tVB\tCB\n";
+				for (int j = 0; j < percentages.size(); j++)
+				{
+					file << std::fixed << std::setprecision(8);
+					file << result(j*2, 0) << "\t" << result(j*2, 1) << "\t" << result(j*2, 2) << " #Gamma" << "\n";
+				}
+				for (int j = 0; j < percentages.size(); j++)
+				{
+					file << std::fixed << std::setprecision(8);
+					file << result(j * 2 + 1, 0) << "\t" << result(j * 2 + 1, 1) << "\t" << result(j * 2 + 1, 2) << " #K" << "\n";
+				}
+			}
+			file.close();
+		}
+	}
+	*/
+	vector<string> compunds = { "MoS2", "MoSe2", "WS2", "WSe2" };
+	vector<string> meth = { "no_so", "so" };
 	VASP_data data = VASP_data();
-	data.read_EIGENVAL("workspace/" + body + id);
-	data.write_BS(id, true, true);
+	for (const auto& comp : compunds)
+	{
+		for (const auto& method : meth)
+		{
+			string job_name = method + "_" + comp;
+			string filename = "EIGENVAL_" + comp + "__BS_" + method;
+			cout << "Processing " << job_name << endl;
+			data.read_EIGENVAL(filename);
+			data.write_BS("EIGENVAL_R2SCAN_" + comp + "_" + method, true, true);
+		}
+	}
 }
 
 void job5()
