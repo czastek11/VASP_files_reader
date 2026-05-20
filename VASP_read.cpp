@@ -127,7 +127,7 @@ bool VASP_data::checkpot()
 	}
 	else return true;
 }
-//same as before
+// same as before
 
 bool VASP_data::checkdos()
 {
@@ -139,7 +139,7 @@ bool VASP_data::checkdos()
 	}
 	else return true;
 }
-//saem as before
+// same as before
 
 bool VASP_data::checkKPOINTS()
 {
@@ -151,7 +151,7 @@ bool VASP_data::checkKPOINTS()
 	}
 	else return true;
 }
-//same as before
+// same as before
 
 bool VASP_data::checkBS()
 {
@@ -163,7 +163,7 @@ bool VASP_data::checkBS()
 	}
 	else return true;
 }
-//same as before
+// same as before
 
 arma::mat VASP_data::sorting_positions(arma::mat positions, std::string method)
 {
@@ -188,25 +188,34 @@ std::vector<int> VASP_data::get_mesh_indices(arma::vec pos)
 		arma::vec a = cell_matrix.row(0).t();
 		arma::vec b = cell_matrix.row(1).t();
 		arma::vec c = cell_matrix.row(2).t();
-		// get the cell lattise base vectors
+		// get the cell lattice base vectors
 		std::vector<int> indices(3);
 		arma::mat transform_matrix = arma::mat(3, 3);
 		transform_matrix.col(0) = a / NGiF.at(0);
 		transform_matrix.col(1) = b / NGiF.at(1);
 		transform_matrix.col(2) = c / NGiF.at(2);
 		// construct the matrix of transformation R = x_1 * a / n1 + x_2 * b / n2 + x_3 * c / n3
-		//transform_matrix.print("Transform matrix:");
-		arma::vec fractional_coords = arma::inv(transform_matrix) * pos; //perform the transformation into mesh postions
+		// transform_matrix.print("Transform matrix:");
+		arma::vec fractional_coords = arma::inv(transform_matrix) * pos; // perform the transformation into mesh postions
 		for (int i = 0; i < 3; i++)
 		{
-			indices[i] = static_cast<int>(floor(fractional_coords(i) + 0.5)); //round to nearest indice - intiger
-			if (indices[i] < 0) indices[i] = 0; //all negatives results are set as 0
-			if (indices[i] >= NGiF[i]) indices[i] = NGiF[i] - 1; //all indices above the cell are set to highest indice
+			indices[i] = static_cast<int>(floor(fractional_coords(i) + 0.5)); // round to nearest indice - intiger
+			if (indices[i] < 0) indices[i] = 0; // all negatives results are set as 0
+			if (indices[i] >= NGiF[i]) indices[i] = NGiF[i] - 1; // all indices above the cell are set to highest indice
 		}
 		return indices;
 	}
 	else return std::vector<int>();
 	
+}
+
+std::vector<int> VASP_data::get_mesh()
+{
+	if (checkmesh()) // check if the mesh is laoded
+	{
+		return NGiF;
+	}
+	else return std::vector<int>();
 }
 
 void VASP_data::read_POSCAR_like(std::string filename, std::fstream& file)
@@ -287,8 +296,8 @@ void VASP_data::read_POSCAR(std::string filename)
 	if(file.is_open()) file.close(); // and then close the file after
 	else 
 	{
-		std::cout << "POSCAR not probably not read!\n";
-		std::cerr << "POSCAR not probably not read!\n";
+		std::cout << "POSCAR probably not read!\n";
+		std::cerr << "POSCAR probably not read!\n";
 	}
 }
 
@@ -306,13 +315,13 @@ void VASP_data::read_bestsqs(std::string filename)
 		std::cerr << "Error opening file: " << filename << std::endl;
 		throw std::runtime_error("Error opening file");
 	}
-	//clear previous data only after successfully opening the file, to avoid partial clearing if file opening fails
+	// clear previous data only after successfully opening the file, to avoid partial clearing if file opening fails
 	atoms_per_type.clear();
 	types_atom_positions.clear();
 	atom_positions.clear();
 	atom_names.clear();
-	//clear all the data to be sure, a lot of them are vectors or arma::mat added by joing col/row 
-	//so we need to avoid adding to the old data - a lot of bugs were caused by this in repeated usage of VASP_data object
+	// clear all the data to be sure, a lot of them are vectors or arma::mat added by joining col/row 
+	// so we need to avoid adding to the old data - a lot of bugs were caused by this in repeated usage of VASP_data object
 
 	arma::mat old_cell_matrix = arma::mat(3, 3, arma::fill::zeros);
 	arma::mat trans_matrix = arma::mat(3, 3, arma::fill::zeros);
@@ -406,8 +415,6 @@ void VASP_data::read_CHGCAR(std::string filename)
 	}
 	file.close();
 }
-
-
 
 void VASP_data::read_LOCPOT(std::string filename)
 {
@@ -618,6 +625,7 @@ std::vector<double> VASP_data::average_potential_over(int direction)
 	}
 }
 
+
 std::vector<double> VASP_data::moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type)
 {
 	// average potential in z over moving window. Window size is to be set
@@ -733,6 +741,37 @@ void VASP_data::write_potential_over(std::string filename, std::vector<double> p
 	{
 		dir_real = i * norm / NGiF[dir];
 		file << dir_real << " " << potential_av[i] << "\n";
+	}
+	file.close();
+}
+
+void VASP_data::write_potential_over(std::string filename, std::vector<std::vector<double>> potential_av, int direction1, int direction2)
+{
+	std::vector<int> dirs = { 0,1,2 };
+	int dir1 = dirs.at(direction1 - 1);
+	int dir2 = dirs.at(direction2 - 1);
+	if (dir1 > dir2) std::swap(dir1, dir2);
+	dirs.erase(dirs.begin() + dir1);
+	dirs.erase(dirs.begin() + dir2 - 1); // after erasing dir1, the index of dir2 is shifted by 1
+	std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_potential_" + std::to_string(direction1)+ std::to_string(direction2) + ".txt"); //save in output folder with filename + _potential_z.txt
+	std::fstream file;
+	file.open(fullPath, std::ios::out);
+	double dir_real_x;
+	double dir_real_y;
+	arma::mat base = cell_matrix.t();
+	arma::vec base_vec1 = base.col(dir1);
+	arma::vec base_vec2 = base.col(dir2);
+	arma::vec base_vec3 = base.col(dirs.at(0)); // the direction we don't average over, just for reference of the plane where we write potential
+	arma::vec catresian_vec;
+	for (int i = 0; i < NGiF[dir1]; i++)
+	{
+		for (int j = 0; j < NGiF[dir2]; j++)
+		{
+			catresian_vec = i * 1.0 / NGiF[dir1] * base_vec1 + j * 1.0 / NGiF[dir2] * base_vec2 + 0.5 * base_vec3;
+			file << catresian_vec(dir1) << " " << catresian_vec(dir2) << " " << potential_av[i][j] << "\n";
+			 //write out coordinates in the plane of two directions we average over and potential value, coordinates are transformed to real space and centered in the middle of the cell in the direction we don't average over
+			 // this is just for better visualisation of the potential map, since for example for TMDS the plane of two directions we average over is xy plane, so it's better to have coordinates in real space rather than mesh indices, and also to be centered in the middle of the cell rather than starting from 0, to see the symmetry of the potential map better
+		}
 	}
 	file.close();
 }
@@ -1021,20 +1060,22 @@ void VASP_data::read_BS(std::string filename, bool header, bool verbose_kpts)
 		{
 			std::stringstream ss(line);
 			
-			if (verbose_kpts)
+			if (verbose_kpts) // read k-point coordinates if verbose_kpts is true, otherwise just read number of k-point and skip coordinates, since they won't be written out in this case
 			{
 				ss >> kpoints >> kpoint(0) >> kpoint(1) >> kpoint(2);
 				read_kpoints.push_back(kpoint);
 			}
 			else ss >> kpoints;
 			std::vector<double> dummy;
-			while (ss >> energy)
+			while (ss >> energy) // read out all energies for given k-point, since we don't know how many there are, we just read until the end of the line
 			{
 				dummy.push_back(energy);
 			}
 			read_BS.push_back(dummy);
 		}
-		file.close();
+		file.close(); // close file after reading all data
+
+		// now we have read all data in read_BS and read_kpoints, we just need to transfer it to VASP_data class members
 		NBANDS = read_BS.at(0).size();
 		KPOINTS = arma::mat(kpoints, 4, arma::fill::zeros);
 		BS = arma::mat(kpoints, NBANDS,arma::fill::zeros);
@@ -1098,17 +1139,29 @@ void VASP_data::write_BS(std::string filename)
 
 arma::mat VASP_data::get_cell_matrix()
 {
-	return cell_matrix;
+	if (checkgeo()) // cell matrix must be loaded before getting it
+	{
+		return cell_matrix;
+	}
+	else return arma::mat();
 }
 
 arma::mat VASP_data::get_BS()
 {
-	return BS;
+	if (checkBS()) // band structure must be loaded before getting it
+	{
+		return BS;
+	}
+	else return arma::mat();
 }
 
 arma::mat VASP_data::get_occupations()
 {
-	return occupations;
+	if(checkBS()) // band structure must be loaded before getting occupations, since they are read together from EIGENVAL
+	{
+		return occupations;
+	}
+	else return arma::mat();
 }
 
 arma::rowvec VASP_data::find_kpoint_energy(arma::rowvec kpt, bool weight, int& index)
@@ -1239,27 +1292,28 @@ VASP_data VASP_data::supercell_grid(int rep_x, int rep_y, int rep_z,std::vector<
 
 }
 
-
 void VASP_data::alloy_geometry(VASP_data data2, double percentage, std::vector<std::string> mixed_atom_names1, std::vector<std::string> mixed_atom_names2, std::string filename)
 {
 	if(checkgeo() && data2.checkgeo())
 	{
-		arma::mat new_cell_matrix = cell_matrix * percentage + data2.cell_matrix * (1-percentage);
+		// mix the cell matrices of two structures by given percentage, as given by vant Hoff's law for linear mixing of properties
+		arma::mat new_cell_matrix = cell_matrix * percentage + data2.cell_matrix * (1 - percentage); 
+
 		arma::vec new_atom_positions;
 		std::vector<std::vector<std::string>> atom_groups;
 		std::string name,name2;
 		bool present;
 		std::vector<std::string>::iterator position1 , position2 ;
 		int index, id1,id2;
-		for(int i=0; i<atom_names.size(); i++)
+		for(int i=0; i<atom_names.size(); i++) // check how to handle given element from first structure
 		{
 			std::vector<std::string> group;
 			name = atom_names.at(i);
-			if(std::find(data2.atom_names.begin(), data2.atom_names.end(), atom_names.at(i)) != data2.atom_names.end()) // if this atom type is present in both structures, we can mix them
+			if(std::find(data2.atom_names.begin(), data2.atom_names.end(), atom_names.at(i)) != data2.atom_names.end()) // if this atom type is present in both structures, we add them to new list
 			{
 				group.push_back(name);
 			}
-			else 
+			else // otherwise check if it appers on the list of mixed pairs, if it does we add both this atom type and the corresponding one from the other structure to new list, if it doesn't we throw an error since we don't know how to mix this atom type
 			{
 				position1 = std::find(mixed_atom_names1.begin(), mixed_atom_names1.end(), name);
 				position2 = std::find(mixed_atom_names2.begin(), mixed_atom_names2.end(), name);
@@ -1285,19 +1339,22 @@ void VASP_data::alloy_geometry(VASP_data data2, double percentage, std::vector<s
 			// we create groups of atom types that should be mixed together
 		}
 
-
-
-
+		// get base vectors lengths
 		double a = arma::norm(new_cell_matrix.row(0));
 		double b = arma::norm(new_cell_matrix.row(1));
 		double c = arma::norm(new_cell_matrix.row(2));
+		// get angles between base vectors
 		double alpha = std::acos(arma::dot(new_cell_matrix.row(1), new_cell_matrix.row(2)) / (b * c)) * 180.0 / M_PI;
 		double beta = std::acos(arma::dot(new_cell_matrix.row(0), new_cell_matrix.row(2)) / (a * c)) * 180.0 / M_PI;
 		double gamma = std::acos(arma::dot(new_cell_matrix.row(0), new_cell_matrix.row(1)) / (a * b)) * 180.0 / M_PI;
 		std::filesystem::path fullPath = std::filesystem::path("output") / (filename + "_lat.in");
 		std::ofstream file;
 		file.open(fullPath, std::ios::out);
+		// write out the first line of lat.in format for mcsqs iput
+		// first line is base vectors lengths and angles
 		file <<std::fixed << std::setprecision(16)<< a << " " << b << " " << c << " " <<std::setprecision(2)<< alpha << " " << beta << " " << gamma << "\n";
+		// then there is transformation matrix, which we leave as identity since we already mixed the cell matrices and atom positions, so there is no need for additional transformation
+		// and the desired shap is either random with set number of atoms or structure in seperate fill 
 		for(int i=0;i<3;i++)
 		{
 			for(int j=0;j<3;j++)
@@ -1337,15 +1394,12 @@ void VASP_data::alloy_geometry(VASP_data data2, double percentage, std::vector<s
 					arma::mat inverted = arma::inv(new_cell_matrix.t());
 					new_atom_positions = inverted * new_atom_positions; // convert back to fractional coordinates
 					file <<std::fixed << std::setprecision(16)<< new_atom_positions[0]<< " " << new_atom_positions[1] << " " << new_atom_positions[2];
-					file << " " << name << "="<<std::setprecision(6)<< percentage << " , " << name2 << "=" <<std::setprecision(6)<< (1-percentage) << "\n"; // write out the mixed number of atoms
+					file << " " << name << "=" << std::setprecision(6) << percentage << " , " << name2 << "=" << std::setprecision(6) << (1 - percentage) << "\n"; // write out the mixed atoms and probabilities for this group
 				}
 			}
 		}
 	}
 }
-
-
-
 
 double VASP_data::calc_dip_dip_potential(arma::vec dip_1, arma::vec dip_2, arma::vec R)
 {

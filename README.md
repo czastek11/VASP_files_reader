@@ -100,12 +100,51 @@ There are two constructors currently:
 
 ---
 
+### `std::vector<double> average_potential_over(int direction)`
+
+- **Arguments**:
+  - `direction`: integer specifying the direction of averaging (perpendicular to the averaged plane)
+- **Output**: array of averaged potential over plane perpendicular to the specified direction
+- **Description**: Calculates the potential averaged over the specified direction using previously read LOCPOT data. For example, if `direction` is 3, the method averages over planes perpendicular to the third lattice vector.
+
+---
+
+### `auto average_potential_over_directions(const std::array<int, NumSumDirs>& sum_dirs)`
+
+- **Arguments**:
+  - `sum_dirs`: an array of integers specyfing directions over which the potential is averaged. The size of the array is selected using template parameter.
+- **Output**: Depending on the number of directions specified in `sum_dirs`, the output is either a vector of averaged potential (if two directions are specified), a matrix of averaged potentials (if one direction is specified) or a single average value (if all three directions are specified).
+- **Description**: Calculates the potential averaged over specified directions using previously read LOCPOT data. For example, if `sum_dirs` contains {1, 2}, the method averages over first and second lattice vectors, resulting in a vector of averaged potential along the third direction. If `sum_dirs` contains {1}, the method averages over the first lattice vector, resulting in a matrix of averaged potential over the second and third directions. If `sum_dirs` contains {1, 2, 3}, the method averages over all three lattice vectors, resulting in a single average value of the potential. The syntax is `average_potential_over_directions<NumSumDirs>({dir1, dir2, ...})`, where `NumSumDirs` is the number of directions specified in the array.
+
+---
+
+### 'std::vector<double> moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type)'
+
+- **Arguments**: 
+  - `av_pot`: vector of potential averaged over specified direction obtained from method `average_potential_over`
+  - `direction`: integer specifying the direction of averaging (perpendicular to the averaged plane)
+  - `period_type`: string naming the scheme of moving average, same as in method `sum_potential_averaged_xy_z`
+- **Output**: vector of potential averaged over specified direction and then averaged with a moving window in the same direction
+- **Description**: Calculates the potential averaged over specified direction and then averaged with a moving window in the same direction. The window size is controlled by `period_type` with the same options as in method `sum_potential_averaged_xy_z`.
+
+---
+
 ### `write_potential_z(std::string filename, std::vector<double> potential_z)`
 
 - **Arguments**: 
   - `filename`: name of the file where it is written
   - `potential_z`: previously calculated double array (vector<double>) of averaged potential
 - **Description**: Writes out averaged potential that was calculated from method `sum_potential_averaged_xy_z`
+
+---
+
+### `write_potential_over(std::string filename, std::vector<double> potential_av, int direction)`
+
+- **Arguments**: 
+  - `filename`: name of the file where it is written
+  - `potential_av`: previously calculated double array (vector<double>) of averaged potential or vector of vectors of averaged potential obtained from method `average_potential_over_directions`
+  - `direction`: integer specifying the direction of averaging (perpendicular to the averaged plane) or dircetion1,direction2, specified in `average_potential_over_directions`
+- **Description**: Writes out averaged potential that was calculated from method `average_potential_over`. In case of two directions, it gives potential values in plane defined by those two directions, for example if direction1 = 1 and direction2 = 3, it gives potential values in xz plane be aware that for one direction, the scale written is from 0 to norm of that direction base cell vector, while for two directions, it is written as function of chosen cartesian directions.
 
 ---
 
@@ -152,6 +191,13 @@ There are two constructors currently:
 
 - **Arguments**: string name of the file and its path
 - **Description**: Reads information from EIGENVAL: k-points, their indices, their weight, all band energies for each, and all their occupations
+
+---
+
+### `read_BS(std::string filename)`
+
+- **Arguments**: string name of the file and its path
+- **Description**: Reads information from raw energy file list
 
 ---
 
@@ -238,6 +284,16 @@ There are two constructors currently:
   - `add_vacuum`: 6-element array of mulitplies (vector<double>) whether to add vacuum of mulitple of the length of the given vector to below and/or above cell in given direction {below_x, above_x, below_y, above_y, below_z, above_z}
 - **Output**: new object of VASP_data class with generated supercell geometry stored as new POSCAR
 - **Description**: Generates supercell as a new VASP_data object. `rep_x`, `rep_y`, `rep_z` control how many times in each direction the cell is multiplied. `add_vacuum` is array of double values to set how many multiplies of vectors are to be added as vacuum
+
+---
+
+### 'alloy_geometry(VASP_data data2, double percentage, std::vector<std::string> mixed_atom_names1, std::vector<std::string> mixed_atom_names2, std::string filename)'
+
+- **Arguments**: 
+  - `data2`: another VASP_data object with the geometry to be mixed with the geometry of the current object
+  - `percentage`: double value of percentage of mixing between the two geometries (0.0-1.0)
+  - `mixed_atom_names1`, `mixed_atom_names2`: arrays (vector<string>) of names of atoms to be mixed in the first and second geometry, respectively. The mixed pairs are mixed_atom_names1[0] with mixed_atom_names2[0], mixed_atom_names1[1] with mixed_atom_names2[1], etc. The number of pairs is determined by the size of the smaller array between the two.
+  - `filename`: string name and path for the output lat.in input file for best sqs
 
 ---
 

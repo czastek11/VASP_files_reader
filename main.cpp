@@ -5,6 +5,7 @@
 #include <sstream>
 #include <armadillo>
 #include "VASP_read.h"
+#include <array>
 
 using namespace std;
 
@@ -109,20 +110,43 @@ void job1()
 	}
 	*/
 
-	vector<string> compounds = { "MoSe2","MoS2 ","WS2", "WSe2" };
+	vector<string> compounds = { "MoSe2","MoS2", "WS2", "WSe2" };
 	for (const auto& compound : compounds)
 	{
-		data_in.read_POSCAR("POSCAR_" + compound);
-		data_out = data_in.supercell_grid(2, 2, 1, { 0,0,0,0,0.0,0.0 });
-		data_out.write_POSCAR(compound + "_2x2");
+		data_in.read_POSCAR("CONTCAR_" + compound);
+		data_out = data_in.supercell_grid(4, 4, 1, { 0,0,0,0,0.0,0.0 });
+		data_out.write_POSCAR(compound + "_supercell");
 	}
-
-	
-
-
 }
 
 void job2()
+{
+	VASP_data POSCAR1 = VASP_data();
+	VASP_data POSCAR2 = VASP_data();
+	vector<string> mixinga, mixingb, mixingcombinations, mixing_at1, mixing_at2;
+	string filename1, filename2, filename3;
+	mixinga = { "WS2", "WSe2", "WS2" };
+	mixingb = { "WSe2", "MoSe2", "MoS2" };
+	mixing_at1 = { "S", "W", "W" };
+	mixing_at2 = { "Se", "Mo", "Mo" };
+	mixingcombinations = { "WSSe2", "WMoSe2", "WMoS2" };
+	string job_name_;
+	for (int i = 0; i < mixinga.size(); i++)
+	{
+		filename1 = "POSCAR_" + mixinga.at(i);
+		filename2 = "POSCAR_" + mixingb.at(i);
+		POSCAR1.read_POSCAR(filename1);
+		POSCAR2.read_POSCAR(filename2);
+		for (double x = 0.25; x < 1.0; x += 0.25)
+		{
+			job_name_ = "Alloy geometry for " + mixinga.at(i) + " and " + mixingb.at(i) + " with x = " + to_string(x);
+			cout << "Processing: " << job_name_ << endl;
+			POSCAR1.alloy_geometry(POSCAR2, x, { mixing_at1.at(i) }, { mixing_at2.at(i) }, to_string(x) + "_" + mixingcombinations.at(i));
+		}
+	}
+}
+
+void job3()
 {
 	//*/
 		/*
@@ -322,110 +346,10 @@ void job2()
 	//*/
 }
 
-void job3()
+void job4()
 {
+	//presentation
 	/*
-					string body1 = "LOCPOT_", body2 = "EIGENVAL_";
-					vector<string> metals = { "Mo","W" };
-					vector<string> chalcogenides = { "S2", "Se2" };
-					vector<string> compounds = { "MoSe2", "WS2", "WSe2" };
-					vector<string> layers = { "2layer","4layer","6layer", "8layer" };//{ "8layer" } "bulk",;
-					vector<int> layer_values = { 2,4,6,8 }; //2,
-					string  id,filename1,filename2;
-					VASP_data data = VASP_data();
-					vector<double> potential_z, val, vac;
-					double pom;
-					int zzz;
-					fstream file;
-					for (int i = 0; i < compounds.size(); i++)
-					{
-						val.clear();
-						vac.clear();
-						for (int j = 0; j < layers.size(); j++)
-						{
-							id = compounds.at(i) + "_" + layers.at(j);
-							filename1 = "workspace\\" + body1  + id;
-							filename2 = "workspace\\" + body2  + id;
-							data.read_LOCPOT(filename1);
-							data.read_EIGENVAL(filename2);
-							if(layers.at(j) == "2layer") potential_z = data.sum_potential_averaged_xy_z("primitive");
-							else potential_z = data.sum_potential_averaged_xy_z("layered");
-							pom = data.find_band_extremum(data.find_valence_band(), true, zzz, true);
-							val.push_back(pom);
-							pom = potential_z[0];
-							vac.push_back(pom);
-							data.write_potential_z("potential_z_" + id, potential_z);
-							cout << "Processed " << id << ": Valence band maximum energy = " << val.back() << " eV, Vacuum level = " << vac.back() << " eV" << endl;
-						}
-						filename1 = "workspace\\potential_and_ionisation_energies_" + compounds.at(i) + ".txt";
-						file.open(filename1, ios::out);
-						file << "#Layer\tValence Band Maximum (eV)\tVacuum Level (eV)\tIonisation Energy (eV)\n";
-						for (int j = 0; j < layers.size(); j++)
-						{
-							double ionisation_energy = vac.at(j) - val.at(j);
-							file << layers.at(j) << "\t" << val.at(j) << "\t" << vac.at(j) << "\t" << ionisation_energy << "\n";
-						}
-						file.close();
-					}
-
-
-					//*/
-
-					/*
-					job_name = "MoS2_vacum_pot_layers";
-					VASP_data data = VASP_data();
-					arma::mat cell_matrix;
-					int pom;
-					for(const auto& layer: layers)
-					{
-						data.read_LOCPOT("workspace\\MoS2_POT\\" + body  + layer);
-						cell_matrix = data.get_cell_matrix().t();
-						if(layer == "bulk")
-						{
-							data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "primitive");
-						}
-						else if(layer == "2layer")
-						{
-							pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
-							data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "manual", pom);
-						}
-						else
-						{
-							data.write_potential_averaged_xy_z("MoS2_avg_pot_z_" + layer, "layered");
-						}
-					}
-					//*/
-
-					/*
-					string body1 = "LOCPOT_", body2 = "EIGENVAL_";
-					string id1 = "MoS2_2_no_so", id2 = "MoS2_2_so";
-					vector<double> en, pot;
-					data.read_LOCPOT("workspace\\" + body1 + id1);
-					data.read_EIGENVAL("workspace\\" + body2 + id1);
-					arma::mat cell_matrix = data.get_cell_matrix().t();
-					pom = floor(0.5 + (data.get_mesh_indices(cell_matrix.col(2))[2] / 3.0));
-					vector<double> pot_z = data.sum_potential_averaged_xy_z( "manual", pom);
-					res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
-					en.push_back(res);
-					pot.push_back(pot_z.at(0));
-					data.write_potential_z(id1, pot_z);
-
-					data.read_LOCPOT("workspace\\" + body1 + id2);
-					data.read_EIGENVAL("workspace\\" + body2 + id2);
-					pot_z = data.sum_potential_averaged_xy_z("manual", pom);
-					res = data.find_band_extremum(data.find_valence_band(), true, dummy, true);
-					en.push_back(res);
-					pot.push_back(pot_z.at(0));
-					data.write_potential_z(id2, pot_z);
-
-					cout << "Processed " << id1 << ": Valence band maximum energy = " << en.at(0) << " eV, Vacuum level = " << pot.at(0) << " eV";
-					cout << " ionisation energy = " << pot.at(0) - en.at(0) << " eV" << endl;
-					cout << "Processed " << id2 << ": Valence band maximum energy = " << en.at(1) << " eV, Vacuum level = " << pot.at(1) << " eV";
-					cout << " ionisation energy = " << pot.at(1) - en.at(1) << " eV" << endl;
-					*/
-
-					//presentation
-					/*
 					string body1 = "LOCPOT_", body2 = "EIGENVAL_";
 					string id = "MoS2_8layer";
 					int pom;
@@ -439,160 +363,29 @@ void job3()
 					data.write_potential_z("potential_z_" + id, potential_z);
 					cout << "Processed " << id << ": Valence band maximum energy = " << valence_band_max << " eV, Vacuum level = " << vacuum_level << " eV";
 					*/
-	/*
-	std::vector<double> av_pot, percentages;
-	std::vector<std::string> names;
-	for (int i = 0; i < 4; i++)
-	{
-		percentages.push_back(i * 0.25 + 0.125);
-		names.push_back("");
-	}
-	std::vector<arma::vec> results;
-	string filename1, filename2, filename3, perc;
-	int val, pom, win;
-	VASP_data data = VASP_data();
-	double val_g, vac, ionis;
-	arma::vec result = arma::vec(3, arma::fill::zeros);
-	for (int i = 0; i < 4; i++)
-	{
-		pom = static_cast<int>(percentages.at(i) * 1000);
-		std::ostringstream ss;
-		ss << std::setfill('0') << std::setw(4) << pom;
-		perc = ss.str();
-
-		//if (percentages.at(i) < 1.0) perc = "0" + perc;
-		filename1 = "workspace/EIGENVAL_MoSSe2_" + perc + names.at(i);
-		filename2 = "workspace/energies_MoSSe2_" + perc + names.at(i);
-		filename3 = "workspace/LOCPOT_MoSSe2_" + perc + names.at(i);
-
-		cout << "Processing: " << perc + names.at(i) << "\n";
-
-		data.read_EIGENVAL(filename1);
-		val = data.find_valence_band();
-
-		data.read_BS(filename2, false, true);
-		val_g = data.find_band_extremum(val, true, pom, true);
-
-		data.read_LOCPOT(filename3);
-		av_pot = data.average_potential_over(3);
-		win = data.get_mesh_indices(data.get_cell_matrix().row(2).t() / 3.0).at(2);
-		av_pot = data.moving_average_potential_over(av_pot, 3, "manual", win);
-		vac = av_pot.front();//max(av_pot.front(), av_pot.back());
-
-		ionis = vac - val_g;
-
-		cout << "Valence max: " << val_g << " vacuum pot.: " << vac << " ionisation potential: " << ionis << "\n";
-		result(0) = val_g; result(1) = vac; result(2) = ionis;
-		results.push_back(result);
-
-
-		//data.write_potential_over("MoSSe2_" + perc + "_2x2" + names.at(i), av_pot, 3);
-	}
-	fstream file;
-	file.open("workspace/ionisation_energy_2x2.txt", ios::out);
-	for (int i = 0; i < 4; i++)
-	{
-		file << percentages.at(i) << "\t" << results.at(i)(0) << "\t" << results.at(i)(1) << "\t" << results.at(i)(2) << "\n";
-	}
-	//*/
-	/*
-	std::vector<std::string> percentages = { "0250", "0500", "0750" };
-	std::vector<std::string> supercells = { "2x2", "4" };
-	std::map<std::string, std::vector<std::vector<double>>> results;
-	for (const auto& supercell : supercells)
-	{
-		std::string filename_output = "workspace/ionisation_energies_" + supercell + ".txt";
-		std::ofstream outfile(filename_output);
-
-		if (!outfile.is_open()) {
-			std::cerr << "Cannot open output file: " << filename_output << std::endl;
-			continue;
-		}
-		outfile << "# x_percent\tval_G\tvacuum_potential\tionisation_energy\n";
-		std::cout << "\nResults for " << supercell << " supercell:\n";
-
-		std::vector<std::vector<double>> supercell_results;
-
-		for (const auto& perc : percentages)
-		{
-			// Convert percentage to decimal for output
-			double x_percent;
-			if (perc == "0250") x_percent = 0.25;
-			else if (perc == "0500") x_percent = 0.50;
-			else if (perc == "0750") x_percent = 0.75;
-
-			std::cout << "\nProcessing " << perc << " " << supercell << std::endl;
-
-			// Construct filenames
-			std::string eigenval_file = "workspace/EIGENVAL_MoSSe2_" + perc + "_" + supercell;
-			std::string bs_file = "workspace/BS_MoSSe2_" + perc + "_" + supercell;
-			std::string locpot_file = "workspace/LOCPOT_MoSSe2_" + perc + "_" + supercell;
-
-			VASP_data data = VASP_data();
-
-			// Read EIGENVAL
-			data.read_EIGENVAL(eigenval_file);
-			int val = data.find_valence_band();
-			int pom;
-			data.read_BS(bs_file, false, true);
-			double val_G = data.find_band_extremum(val, true, pom, true);
-
-
-			data.read_LOCPOT(locpot_file);
-			std::vector<double> av_pot = data.average_potential_over(3);
-			//double ionis_en = *std::max_element(av_pot.begin(), av_pot.end());
-
-			if (supercell == "2x2")
-			{
-				int win = data.get_mesh_indices(data.get_cell_matrix().row(2).t() / 3.0).at(2);
-				av_pot = data.moving_average_potential_over(av_pot, 3, "manual", win);
-			}
-			else if (supercell == "4") av_pot = data.moving_average_potential_over(av_pot, 3, "layered", 16, 18);
-
-			double ionis_en = av_pot.front();// max(av_pot.front(), av_pot.back());
-			double ionisation_energy = ionis_en - val_G;
-
-			// Output to console
-			std::cout << "  x = " << x_percent
-				<< "  val_G = " << val_G
-				<< "  vacuum pot = " << ionis_en
-				<< "  ionisation energy = " << ionisation_energy << std::endl;
-
-			outfile << x_percent << "\t"
-				<< val_G << "\t"
-				<< ionis_en << "\t"
-				<< ionisation_energy << "\n";
-
-			// Write potential to file
-			//if(x_percent == 0.25 && supercell == "2x2") data.write_potential_over("MoSSe2_" + perc + "_" + supercell, av_pot, 3);
-
-			// Store for summary
-			supercell_results.push_back({ x_percent, val_G, ionis_en, ionisation_energy });
-		}
-		outfile.close();
-		results[supercell] = supercell_results;
-		std::cout << "\nResults saved to " << filename_output << std::endl;
-	}
-	*/
-	std::vector<double> percentages = { 0,1.0 };// { 0.25, 0.50, 0.75 }, ;
+	std::vector<double> percentages = { 0,0.25, 0.50, 0.75,1.0 };
 	std::vector<double> av_pot;
-	std::vector<std::string> alloys = { "WS_Se2" };// , "W_MoSe2", "W_MoS2"};
-	std::vector<std::string> method = { "" };// { "rand", "man" };
+	std::vector<std::vector<double>> av_pot_2d;
+	std::vector<std::string> alloys = { "MoS_Se2" };// "WS_Se2"};// , "W_MoSe2", "W_MoS2"};
+	std::vector<std::string> method = { "rand", "man" };
 	string perc, filename1,filename2,filename3,filename_alloy;
 	VASP_data datain = VASP_data();
 	VASP_data dataout = VASP_data();
 	fstream file;
 	arma::mat ionisation_results;
+	arma::mat bands_results;
 	int val, pom, win;
 	double val_G, ionis_en, ionisation_energy;
-
+	///*
 	for (int k = 0; k < method.size(); k++)
 	{
 		for (int i = 0; i < alloys.size(); i++)
 		{
 			ionisation_results = arma::mat(percentages.size(), 4, arma::fill::zeros);
+			bands_results = arma::mat(percentages.size(), 5, arma::fill::zeros);
 			for (int j = 0; j < percentages.size(); j++)
 			{
+				if ((percentages.at(j) == 0 || percentages.at(j) == 1.0) && method.at(k) == "rand") continue; // skip pure cases for random method				
 				perc = format_percentage(percentages.at(j), 3);
 
 				{
@@ -606,7 +399,7 @@ void job3()
 					datain.read_LOCPOT(filename3);
 					av_pot = datain.average_potential_over(3);
 
-					win = datain.get_mesh_indices(datain.get_cell_matrix().row(2).t() / 3.0).at(2);
+					win = datain.get_mesh()[2] / 10;
 					av_pot = datain.moving_average_potential_over(av_pot, 3, "manual", win);
 
 					ionis_en = max(av_pot.front(), av_pot.back()); // (av_pot.front() + av_pot.back()) / 2.0;
@@ -618,11 +411,17 @@ void job3()
 					ionisation_results(j, 2) = ionis_en;
 					ionisation_results(j, 3) = ionisation_energy;
 
+					bands_results(j, 0) = percentages.at(j);
+					bands_results(j, 1) = datain.find_kpoint_energy({ 0,0,0 }, false, pom).at(val);
+					bands_results(j, 2) = datain.find_kpoint_energy({ 0,0,0 }, false, pom).at(val + 1);
+					bands_results(j, 3) = datain.find_kpoint_energy({ 0.333333,0.333333,0 }, false, pom).at(val);
+					bands_results(j, 4) = datain.find_kpoint_energy({ 0.333333,0.333333,0 }, false, pom).at(val + 1);
+
 					datain.write_potential_over(alloys.at(i) + "_" + perc + "_" + method.at(k), av_pot, 3);
 				}
 			}
 
-			filename_alloy = "output/ionisation_energies_" + alloys.at(i) + "_" + method.at(k);
+			filename_alloy = "output/ionisation_energies_" + alloys.at(i) + "_" + method.at(k) + ".txt";
 			file.open(filename_alloy, ios::out);
 			if (!file.is_open()) {
 				std::cerr << "Cannot open output file: " << filename_alloy << std::endl;
@@ -635,13 +434,33 @@ void job3()
 				{
 					file << ionisation_results(j, 0) << "\t" << ionisation_results(j, 1) << "\t" << ionisation_results(j, 2) << "\t" << ionisation_results(j, 3) << "\n";
 				}
+				cout << "Ionisation energies saved to " << filename_alloy << endl;
+			}
+			file.close();
+
+
+			filename1 = "output/band_edges_" + alloys.at(i) + "_" + method.at(k) + ".txt";
+			file.open(filename1, ios::out);
+			if (!file.is_open()) {
+				std::cerr << "Cannot open output file: " << filename1 << std::endl;
+				continue;
+			}
+			else
+			{
+				file << "# x_percent\tVB_Gamma\tCB_Gamma\tVB_K\tCB_K\n";
+				for (int j = 0; j < percentages.size(); j++)
+				{
+					file << bands_results(j, 0) << "\t" << bands_results(j, 1) << "\t" << bands_results(j, 2) << "\t" << bands_results(j, 3) << "\t" << bands_results(j, 4) << "\n";
+				}
+				cout << "Band edge energies saved to " << filename1 << endl;
 			}
 			file.close();
 		}
 	}
+	//*/
 }
 
-void job4()
+void job5()
 {
 	/* // band structure for TMDS with and without spin orbit coupling bulk and monolayer
 				string id1 = "MoSe2", id2 = "WS2", layer = "mono", so1 = "no_so", so2 = "so";
@@ -726,7 +545,7 @@ void job4()
 		}
 	}
 	*/
-	vector<string> compunds = { "MoS2", "MoSe2", "WS2", "WSe2" };
+	vector<string> compunds = { "MoSe2" };// { "MoS2", "MoSe2", "WS2", "WSe2" };
 	vector<string> meth = { "no_so", "so" };
 	VASP_data data = VASP_data();
 	for (const auto& comp : compunds)
@@ -742,7 +561,7 @@ void job4()
 	}
 }
 
-void job5()
+void job6()
 {
 	//test / presentation
 	VASP_data data = VASP_data();
@@ -762,7 +581,7 @@ void job5()
 	}
 }
 
-void job6()
+void job7()
 {
 	/*
 					VASP_data data = VASP_data();
@@ -810,29 +629,7 @@ void job6()
 					//data2.write_POSCAR("test");
 					
 					//*/
-					VASP_data POSCAR1 = VASP_data();
-					VASP_data POSCAR2 = VASP_data();
-					vector<string> mixinga, mixingb, mixingcombinations, mixing_at1, mixing_at2;
-					string filename1, filename2, filename3;
-					mixinga = { "WS2", "WSe2", "WS2" };
-					mixingb = { "WSe2", "MoSe2", "MoS2" };
-					mixing_at1 = { "S", "W", "W" };
-					mixing_at2 = { "Se", "Mo", "Mo" };
-					mixingcombinations = { "WSSe2", "WMoSe2", "WMoS2" };
-					string job_name_;
-					for (int i = 0; i < mixinga.size(); i++)
-					{
-						filename1 = "workspace/POSCAR_" + mixinga.at(i);
-						filename2 = "workspace/POSCAR_" + mixingb.at(i);
-						POSCAR1.read_POSCAR(filename1);
-						POSCAR2.read_POSCAR(filename2);
-						for (double x = 0.25; x < 1.0; x += 0.25)
-						{
-							job_name_ = "Alloy geometry for " + mixinga.at(i) + " and " + mixingb.at(i) + " with x = " + to_string(x);
-							cout << "Processing: " << job_name_ << endl;
-							POSCAR1.alloy_geometry(POSCAR2, x, { mixing_at1.at(i) }, { mixing_at2.at(i) }, to_string(x) + "_" + mixingcombinations.at(i));
-						}
-					}
+					
 
 					//*/
 
@@ -846,11 +643,12 @@ int main()
 {
 	map<int, string> jobs;
 	jobs[1] = "Generate supercells and corresponding POSCAR files";
-	jobs[2] = "Charge density analysis and its derviatives (potential, dipole moment, etc.)";
-	jobs[3] = "Potential and ionisation energy";
-	jobs[4] = "Band structure";
-	jobs[5] = "Density of states";
-	jobs[6] = "Custom / debugging";
+	jobs[2] = "Generate mcsqs input files for alloy geometry genration";
+	jobs[3] = "Charge density analysis and its derviatives (potential, dipole moment, etc.)";
+	jobs[4] = "Potential and ionisation energy";
+	jobs[5] = "Band structure";
+	jobs[6] = "Density of states";
+	jobs[7] = "Custom / debugging";
 	string job_name;
 	cout << "Choose job type:\n";
 	for (const auto& job : jobs)
@@ -876,12 +674,12 @@ int main()
 				{
 					job2();
 					break;
-				}			
+				}
 				case 3:
 				{
 					job3();
 					break;
-				}
+				}			
 				case 4:
 				{
 					job4();
@@ -895,6 +693,11 @@ int main()
 				case 6:
 				{
 					job6();
+					break;
+				}
+				case 7:
+				{
+					job7();
 					break;
 				}
 			}

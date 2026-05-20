@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <math.h>
+#include <array>
 
 std::vector<double> moving_average(const std::vector<double> data, int window_size);
 
@@ -25,40 +26,130 @@ public:
 	// constructor strarting with loading any selected files with default options
 	~VASP_data(); //destructor
 	static arma::mat sorting_positions(arma::mat positions, std::string method);
-	//sort positions of ions inside each atom type group, available methods:
-	//z_rising - sorts by the trhird reduced coordinate ascending, usefull for TMDS
+	// sort positions of ions inside each atom type group, available methods:
+	// z_rising - sorts by the third reduced coordinate ascending, useful for TMDS
 	std::vector<int> get_mesh_indices(arma::vec pos);
-	// gives position in mesh grid correspodning to given cartesian psotion or closest fit
+	// gives position in mesh grid corresponding to given cartesian position or closest fit
+	std::vector<int> get_mesh();
+	// gives mesh size in each direction as vector of 3 integers
 	void read_POSCAR(std::string filename);
-	//reads all informations from POSCAR file
+	// reads all informations from POSCAR file
 	void read_bestsqs(std::string filename);
-	//converts best sqs output into POSCAR data
+	// converts best sqs output into POSCAR data
 	void read_CHGCAR(std::string filename);
-	//reads the data from CHGCAR file, automaticlly fills POSCAR file informations
+	// reads the data from CHGCAR file, automatically fills POSCAR file informations
 	void read_LOCPOT(std::string filename);
-	//reads the data from LOCPOT file, automaticlly fills POSCAR file informations
+	// reads the data from LOCPOT file, automatically fills POSCAR file informations
 	void write_POSCAR(std::string filename);
-	//writes out POSCAR file with informations stored in object
+	// writes out POSCAR file with informations stored in object
 	double count_total_electrons_double();
-	//count total electrons - exact result
+	// count total electrons - exact result
 	int count_total_electrons();
-	//count total electrons - rounded to nearest intiger
-
+	// count total electrons - rounded to nearest integer
 
 	std::vector<double> sum_potential_averaged_xy_z(std::string period_type, int period);
-	//when setting otpion "manual", user need to provide number of mesh points to average over
+	// when setting option "manual", user need to provide number of mesh points to average over
 	std::vector<double> sum_potential_averaged_xy_z(std::string period_type);
 	// options are "primitive" - window is the size of the cell (only in 3 direction now)
 	// "layered" - finds third coordinate of first and third type of first ion (it was used for layered TMDS, this why it's so specific for now)
 	// and then take distance between them as window
 	// "none" - skip calculating moving average
 	std::vector<double> average_potential_over(int direction);
+	// averages potential over directions perpendicular to given direction, for example if direction = 3, it averages over xy plane and gives vector of potential values along z direction
 
-	std::vector<double> moving_average_potential_over(std::vector<double>, int direction, std::string period_type);
-	std::vector<double> moving_average_potential_over(std::vector<double>, int direction, std::string period_type, int period);
+
+	template<int NumSumDirs>
+	//definition in header beacuse of compiler issues wheb using auto and template usage if definition is in cpp file
+	auto average_potential_over_directions(const std::array<int, NumSumDirs>& sum_dirs)
+	{
+		if (!checkpot())
+			throw std::runtime_error("Potential data not available");
+
+		// Determine which directions to sum over and which to keep
+		std::vector<int> sum_dir_list(sum_dirs.begin(), sum_dirs.end());
+		for (int d = 0; d < sum_dir_list.size(); d++) sum_dir_list.at(d) -= 1; // convert to 0-based indexing for potential access
+		std::vector<int> keep_dirs;
+		for (int d = 0; d < 3; d++) {
+			if (std::find(sum_dir_list.begin(), sum_dir_list.end(), d) == sum_dir_list.end()) {
+				keep_dirs.push_back(d);
+			}
+			 
+		}
+		
+		// Calculate total points in summed directions
+		int total_sum_points = 1;
+		for (int d : sum_dir_list) {
+			total_sum_points *= NGiF[d];
+		}
+
+		if constexpr (NumSumDirs == 3) {
+			// Sum over all 3 directions -> single double
+			double sum = 0.0;
+			int indices[3];
+			for (indices[0] = 0; indices[0] < NGiF[0]; indices[0]++) {
+				for (indices[1] = 0; indices[1] < NGiF[1]; indices[1]++) {
+					for (indices[2] = 0; indices[2] < NGiF[2]; indices[2]++) {
+						sum += potential(indices[0], indices[1], indices[2]);
+					}
+				}
+			}
+			return sum / total_sum_points;
+		}
+		else if constexpr (NumSumDirs == 2) {
+			// Sum over 2 directions -> vector<double> for the kept direction
+			int keep_dir = keep_dirs[0];
+			std::vector<double> result(NGiF[keep_dir], 0.0);
+			int indices[3];
+
+			for (indices[keep_dir] = 0; indices[keep_dir] < NGiF[keep_dir]; indices[keep_dir]++) {
+				double sum = 0.0;
+				for (indices[sum_dir_list[0]] = 0; indices[sum_dir_list[0]] < NGiF[sum_dir_list[0]]; indices[sum_dir_list[0]]++) {
+					for (indices[sum_dir_list[1]] = 0; indices[sum_dir_list[1]] < NGiF[sum_dir_list[1]]; indices[sum_dir_list[1]]++) {
+						sum += potential(indices[0], indices[1], indices[2]);
+					}
+				}
+				result[indices[keep_dir]] = sum / total_sum_points;
+			}
+			return result;
+		}
+		else if constexpr (NumSumDirs == 1) {
+			// Sum over 1 direction -> vector<vector<double>> for the 2 kept directions
+			int keep_dir1 = keep_dirs[0];
+			int keep_dir2 = keep_dirs[1];
+			std::vector<std::vector<double>> result(NGiF[keep_dir1],
+				std::vector<double>(NGiF[keep_dir2], 0.0));
+			int indices[3];
+
+			for (indices[keep_dir1] = 0; indices[keep_dir1] < NGiF[keep_dir1]; indices[keep_dir1]++) {
+				for (indices[keep_dir2] = 0; indices[keep_dir2] < NGiF[keep_dir2]; indices[keep_dir2]++) {
+					double sum = 0.0;
+					for (indices[sum_dir_list[0]] = 0; indices[sum_dir_list[0]] < NGiF[sum_dir_list[0]]; indices[sum_dir_list[0]]++) {
+						sum += potential(indices[0], indices[1], indices[2]);
+					}
+					result[indices[keep_dir1]][indices[keep_dir2]] = sum / total_sum_points;
+				}
+			}
+			return result;
+		}
+	}
+	// more general method that averages potential over provided directions, giving scalar full average for 3 directions, vector for 2 directions and matrix for 1 direction.
+	// Example usage: average_potential_over_directions<2>({1,3}) will average over x and z direction and give vector of potential values along y direction
+
+	std::vector<double> moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type);
+	std::vector<double> moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type, int period);
 	std::vector<double> moving_average_potential_over(std::vector<double> av_pot, int direction, std::string period_type, int ion1, int ion2);
+	// methods to do moving average over potential in given direction, period type and period defines the range of moving average,
+	// ion1 and ion2 are used when period type is "between_ions" to define between which ions the moving average is done
+	
 
 	void write_potential_over(std::string filename, std::vector<double> potential_av, int direction);
+	void write_potential_over(std::string filename, std::vector<std::vector<double>> potential_av, int direction1, int direction2);
+	// writes out averaged potential that you got from previous method, direction defines the direction along which the potential is given, for example if direction = 3, it gives potential values along z direction.
+	// In case of two directions, it gives potential values in plane defined by those two directions, for example if direction1 = 1 and direction2 = 3, it gives potential values in xz plane
+	// be aware that for one direction, the scale written is from 0 to norm of that direction base cell vector,
+	// while for two directions, it is written as function of chosen cartesian directions
+
+
 
 	//methods to average potential in xy (first and second lattice vector directions) direction and then do moving average over z direction. The range of moving average is defined
 	// by period type and period (number of points in mesh in third lattice vector direction)
@@ -78,6 +169,7 @@ public:
 	void read_EIGENVAL(std::string filename);
 	//read information from EIGENVAL: kpoints, their indexes, their wieght, all the band energies for each and all their occupations
 	void read_BS(std::string filename, bool header, bool verbose_kpts);
+	//read band structure from file, header controls if the first line with number of kpoints and bands is read, verbose_kpts controls if the kpoints are written out in reduced form (not cartesian)
 	void write_BS(std::string filename, bool verbose_kpts, bool only_path);
 	//write out band structure in more compact way for graphing, verbose_kpt is to enable writing out kpoints values
 	// in reduced form (not cartesian), only_path skips writing points that have integration weight, so that only band structure path is written
